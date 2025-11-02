@@ -1,0 +1,164 @@
+{
+	"pages": [
+		// --- 1. 客户 (Customer) 页面 ---
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "预约"
+			}
+		},
+		{
+			"path": "pages/appointment/list",
+			"style": {
+				"navigationBarTitleText": "我的预约"
+			}
+		},
+		{
+			"path": "pages/profile/index",
+			"style": {
+				"navigationBarTitleText": "个人中心" // 通用个人中心
+			}
+		},
+
+		// --- 2. 技师 (Technician) 页面 ---
+		// (必须注册才能被 TabBar 动态指向)
+		{
+			"path": "pages/tech/schedule",
+			"style": {
+				"navigationBarTitleText": "我的排班"
+			}
+		},
+		{
+			"path": "pages/tech/appointments",
+			"style": {
+				// 技师看到的预约列表可能与客户不同
+				"navigationBarTitleText": "工作预约" 
+			}
+		},
+
+		// --- 3. 管理员 (Admin) 页面 ---
+		// (必须注册才能被 TabBar 动态指向)
+		{
+			"path": "pages/admin/dashboard",
+			"style": {
+				"navigationBarTitleText": "仪表盘"
+			}
+		},
+		{
+			"path": "pages/admin/manage",
+			"style": {
+				"navigationBarTitleText": "数据管理"
+			}
+		},
+		{
+			"path": "pages/admin/scheduling",
+			"style": {
+				"navigationBarTitleText": "排班管理"
+			}
+		},
+
+		// --- 4. 管理员 CRUD 子页面 ---
+		// (必须注册才能被 uni.navigateTo 导航)
+		{
+			"path": "pages/admin-crud/locations",
+			"style": {
+				"navigationBarTitleText": "地点管理"
+			}
+		},
+		{ 
+			"path": "pages/admin-crud/services",
+			"style": {
+				"navigationBarTitleText": "服务管理"
+			}
+		},
+		{ 
+			"path": "pages/admin-crud/resources",
+			"style": {
+				"navigationBarTitleText": "资源管理"
+			}
+		},
+		{ 
+			"path": "pages/admin-crud/technicians",
+			"style": {
+				"navigationBarTitleText": "技师管理"
+			}
+		},
+        { 
+			// 这个页面可能用于查看/编辑单个排班，
+            // 与 pages/admin/scheduling (列表/日历视图) 不同
+			"path": "pages/admin-crud/shifts",
+			"style": {
+				"navigationBarTitleText": "排班详情" 
+			}
+		}
+
+		// --- (已移除) 登录页 ---
+		// V7 架构依赖 App.vue 的自动登录流程
+	],
+
+	// --- 全局样式 ---
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "青元新生",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+
+	// --- 默认 TabBar (V7.1: 固定最大数量) ---
+	// 这是 App 启动时的初始状态，会被 userStore 动态覆盖
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#007AFF",
+		"borderStyle": "black",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{
+				"pagePath": "pages/index/index", // 初始指向客户首页
+				"text": "占位1" // 会被 userStore 覆盖
+				// 您需要添加 iconPath 和 selectedIconPath
+				// "iconPath": "static/tab_icons/...", 
+				// "selectedIconPath": "static/tab_icons/..."
+			},
+			{
+				"pagePath": "pages/appointment/list", // 初始指向客户预约
+				"text": "占位2"
+				// "iconPath": "static/tab_icons/...",
+				// "selectedIconPath": "static/tab_icons/..."
+			},
+			{
+				"pagePath": "pages/profile/index", // 初始指向通用个人中心
+				"text": "占位3"
+				// "iconPath": "static/tab_icons/...",
+				// "selectedIconPath": "static/tab_icons/..."
+			},
+			{
+				// 第四个 Tab 占位符, 必须存在
+				"pagePath": "pages/profile/index", // 指向一个通用页面
+				"text": "占位4" 
+				// "iconPath": "static/tab_icons/...",
+				// "selectedIconPath": "static/tab_icons/..."
+			}
+		]
+	},
+
+	// --- easycom (如果安装了 uni-ui, 会自动生成或需要手动添加) ---
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			// 确保这一行或类似的配置存在，以便 uni-ui 组件能被自动识别
+			"uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+		}
+	},
+
+	// --- 启动配置 ---
+	"condition": {
+		"current": 0, // 默认启动第一个条件
+		"list": [
+			{
+				"name": "App-Index", // 条件名称
+				"path": "pages/index/index", // 默认启动页
+				"query": ""
+			}
+		]
+	}
+}

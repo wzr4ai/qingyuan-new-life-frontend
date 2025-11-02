@@ -1,0 +1,47 @@
+/* static/css/admin.css */
+
+/* 页面主容器 */
+.admin-page-container {
+	padding: 20px;
+}
+
+/* 页面头部 */
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+.title {
+	font-size: 24px;
+	font-weight: bold;
+}
+.primary-btn {
+	background-color: #007aff !important;
+	color: #fff !important;
+    display: flex;
+    align-items: center;
+    gap: 5px; /* uni-icons 和文字的间距 */
+}
+.primary-btn::after {
+    border: none;
+}
+
+/* 表格 */
+.data-table {
+	/* H5 专属，确保表格在 PC 上好看 */
+	background-color: #fff;
+	border-radius: 8px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+	overflow: hidden;
+}
+
+/* 表格内的操作按钮 */
+.link-btn {
+	color: #007aff;
+	cursor: pointer;
+	margin: 0 5px;
+}
+.link-btn.danger {
+	color: #f56c6c;
+}
