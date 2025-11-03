@@ -185,10 +185,17 @@
     <uni-popup ref="datePopup" type="bottom" background-color="#ffffff">
         <view class="date-popup">
             <view class="popup-header">
-                <text>选择预约日期</text>
+                <button class="back-btn" @click="closeDatePopup">
+                    <uni-icons type="back" size="18" color="#666"></uni-icons>
+                    <text>返回</text>
+                </button>
+                <text class="popup-title">选择预约日期</text>
                 <uni-icons type="close" size="18" color="#666" @click="closeDatePopup"></uni-icons>
             </view>
             <view v-if="dateWeeks.length" class="date-week-list">
+                <view class="weekday-header">
+                    <text v-for="label in weekdayLabels" :key="label" class="weekday-label">{{ label }}</text>
+                </view>
                 <view
                     v-for="(week, index) in dateWeeks"
                     :key="index"
@@ -329,21 +336,62 @@ const cartSummary = computed(() => {
     return { count, countdown };
 });
 
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
 const dateWeeks = computed(() => {
-    const weeks = [];
-    let currentWeek = [];
-    dateOptions.value.forEach((item, index) => {
-        currentWeek.push(item);
-        if ((index + 1) % 7 === 0) {
-            weeks.push(currentWeek);
-            currentWeek = [];
+    if (!dateOptions.value.length || !selectedDate.value) {
+        return chunkDates(dateOptions.value);
+    }
+
+    const referenceDate = new Date(selectedDate.value);
+    const start = new Date(referenceDate);
+    start.setDate(referenceDate.getDate() - referenceDate.getDay()); // start from Sunday
+
+    const extended = [];
+    for (let i = 0; i < 14; i += 1) {
+        const date = addDays(start, i);
+        const iso = getISODate(date);
+        const option = dateOptions.value.find((item) => item.date === iso);
+        if (option) {
+            extended.push(option);
+        } else {
+            extended.push({
+                date: iso,
+                display: formatDisplayDate(iso),
+                weekday: weekdayLabels[date.getDay()],
+                hasShift: false
+            });
+        }
+    }
+    return chunkDates(extended);
+});
+
+function chunkDates(source) {
+    const chunks = [];
+    let cur = [];
+    source.forEach((item) => {
+        cur.push(item);
+        if (cur.length === 7) {
+            chunks.push(cur);
+            cur = [];
         }
     });
-    if (currentWeek.length) {
-        weeks.push(currentWeek);
+    if (cur.length) {
+        while (cur.length < 7) {
+            const last = cur[cur.length - 1];
+            const nextDate = last ? addDays(last.date, 1) : new Date();
+            const dateObj = new Date(nextDate);
+            cur.push({
+                date: getISODate(dateObj),
+                display: formatDisplayDate(getISODate(dateObj)),
+                weekday: weekdayLabels[dateObj.getDay()],
+                hasShift: false
+            });
+        }
+        chunks.push(cur);
     }
-    return weeks;
-});
+    return chunks;
+}
 
 const selectedDateDisplay = computed(() => {
     if (!selectedDate.value) {
@@ -752,7 +800,7 @@ onBeforeUnmount(() => {
 }
 
 .date-chip {
-    min-width: 96px;
+    width: 48px;
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #e5e5e5;
@@ -876,6 +924,21 @@ onBeforeUnmount(() => {
     margin-bottom: 12px;
 }
 
+.popup-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: #303133;
+    padding: 4px 0;
+}
+
 .times-grid {
     display: flex;
     flex-wrap: wrap;
@@ -919,11 +982,22 @@ onBeforeUnmount(() => {
     gap: 12px;
 }
 
+.weekday-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    color: #909399;
+}
+
+.weekday-label {
+    text-align: center;
+}
+
 .date-week-row {
     display: flex;
+    justify-content: space-between;
     gap: 10px;
-    justify-content: flex-start;
-    flex-wrap: wrap;
 }
 
 .cart-preview {
