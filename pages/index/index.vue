@@ -1,11 +1,12 @@
 <template>
     <view class="tab-wrapper">
-        <component v-if="currentComponent" :is="currentComponent" />
+        <TabContentRenderer :component="currentComponent" />
     </view>
 </template>
 
 <script setup>
 import { useTabContent } from '@/composables/useTabContent.js';
+import TabContentRenderer from '@/components/common/TabContentRenderer.vue';
 
 const { currentComponent } = useTabContent(0);
 </script>
