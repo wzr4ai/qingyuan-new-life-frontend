@@ -179,7 +179,8 @@ const hasChanges = computed(() => {
         periodOrder.some((periodKey) => {
             const slot = day.slots[periodKey];
             return slot.checked !== slot.originalChecked ||
-                (slot.checked && !slot.originalChecked && !slot.locationUid);
+                (slot.checked && !slot.originalChecked && !slot.locationUid) ||
+                (slot.checked && slot.originalChecked && slot.locationUid !== slot.originalLocationUid);
         })
     );
 });
@@ -234,6 +235,7 @@ const buildBoardFromCalendar = (calendar) => {
                 originalChecked: !!slotData.is_active,
                 shiftUid: slotData.shift_uid || null,
                 locationUid: slotData.location_uid || '',
+                originalLocationUid: slotData.location_uid || '',
                 hasBookings: !!slotData.has_bookings,
                 lockedByAdmin: !!slotData.locked_by_admin
             });
@@ -363,6 +365,7 @@ const computeChanges = () => {
     boardDays.value.forEach((day) => {
         periodOrder.forEach((periodKey) => {
             const slot = day.slots[periodKey];
+            const locationChanged = slot.checked && slot.originalChecked && slot.locationUid !== slot.originalLocationUid;
             if (slot.checked && !slot.originalChecked) {
                 additions.push({
                     date: day.date,
@@ -370,7 +373,14 @@ const computeChanges = () => {
                     location_uid: slot.locationUid
                 });
             }
-            if (slot.originalChecked && !slot.checked && slot.shiftUid) {
+            if (locationChanged) {
+                additions.push({
+                    date: day.date,
+                    period: periodKey,
+                    location_uid: slot.locationUid
+                });
+            }
+            if (slot.shiftUid && ((slot.originalChecked && !slot.checked) || locationChanged)) {
                 removals.push(slot.shiftUid);
             }
         });
