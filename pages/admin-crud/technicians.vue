@@ -49,18 +49,20 @@
                     <view class="popup-label">
                         {{ selectedTechnician?.nickname || selectedTechnician?.phone || '未知技师' }}
                     </view>
-                    <picker
-                        mode="selector"
-                        :range="serviceList"
-                        range-key="name"
-                        @change="handleServiceChange"
-                        :value="selectedServiceIndex"
-                    >
-                        <view class="selector selector-inline">
-                            {{ serviceList[selectedServiceIndex]?.name || '请选择服务' }}
-                            <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                    <view class="input-group">
+                        <text class="input-label">可执行服务</text>
+                        <text class="input-hint" v-if="serviceOptions.length">可多选，用于控制该技师的服务范围</text>
+                        <view v-if="serviceOptions.length">
+                            <uni-data-checkbox
+                                multiple
+                                :localdata="serviceOptions"
+                                v-model="selectedServiceUids"
+                            />
                         </view>
-                    </picker>
+                        <view v-else class="empty-hint">
+                            暂无可用服务，请先创建服务项目。
+                        </view>
+                    </view>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -68,7 +70,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     getTechnicians,
     getServices,
@@ -82,7 +84,12 @@ const isLoading = ref(false);
 
 const assignPopup = ref(null);
 const selectedTechnician = ref(null);
-const selectedServiceIndex = ref(-1);
+const selectedServiceUids = ref([]);
+
+const serviceOptions = computed(() => serviceList.value.map((service) => ({
+    text: service.name,
+    value: service.uid
+})));
 
 const fetchTechnicians = async () => {
     try {
@@ -123,12 +130,8 @@ onMounted(refreshData);
 
 const openAssignPopup = (technician) => {
     selectedTechnician.value = technician;
-    selectedServiceIndex.value = -1;
+    selectedServiceUids.value = (technician.services || []).map((service) => service.uid);
     assignPopup.value.open();
-};
-
-const handleServiceChange = (event) => {
-    selectedServiceIndex.value = Number(event.detail.value);
 };
 
 const handleAssign = async () => {
@@ -136,14 +139,23 @@ const handleAssign = async () => {
     if (!technician) {
         return;
     }
-    const service = serviceList[selectedServiceIndex.value];
-    if (!service) {
+    if (!selectedServiceUids.value.length) {
         uni.showToast({ title: '请选择服务', icon: 'none' });
         return;
     }
     try {
-        await assignServiceToTech(technician.uid, service.uid);
-        uni.showToast({ title: '分配成功', icon: 'success' });
+        const originalServices = (technician.services || []).map((service) => service.uid);
+        const toAdd = selectedServiceUids.value.filter((uid) => !originalServices.includes(uid));
+        const toRemove = originalServices.filter((uid) => !selectedServiceUids.value.includes(uid));
+
+        for (const uid of toAdd) {
+            await assignServiceToTech(technician.uid, uid);
+        }
+        for (const uid of toRemove) {
+            await removeServiceFromTech(technician.uid, uid);
+        }
+
+        uni.showToast({ title: '更新成功', icon: 'success' });
         assignPopup.value.close();
         await fetchTechnicians();
     } catch (error) {
@@ -245,6 +257,28 @@ const confirmRemoveService = (technician, service) => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.input-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+}
+.input-hint {
+    font-size: 12px;
+    color: #888888;
+}
+.empty-hint {
+    font-size: 12px;
+    color: #888888;
+    background-color: #fafafa;
+    border: 1px dashed #dddddd;
+    border-radius: 6px;
+    padding: 8px 12px;
 }
 
 .popup-label {
