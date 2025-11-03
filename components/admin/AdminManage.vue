@@ -19,7 +19,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 const menuItems = ref([
     {
@@ -48,6 +48,10 @@ const menuItems = ref([
         path: '/pages/admin-crud/shifts'
     }
 ]);
+
+onMounted(() => {
+    console.debug('[AdminManage] Menu items ready.', menuItems.value);
+});
 </script>
 
 <style scoped>

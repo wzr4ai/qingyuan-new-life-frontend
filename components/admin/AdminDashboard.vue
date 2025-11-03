@@ -94,6 +94,7 @@ const refreshData = async () => {
         return;
     }
     isLoading.value = true;
+    console.debug('[AdminDashboard] Refresh triggered.');
     try {
         const [locations, services, technicians] = await Promise.all([
             getLocations(),
@@ -103,6 +104,11 @@ const refreshData = async () => {
         metrics.value.locations = locations.length;
         metrics.value.services = services.length;
         metrics.value.technicians = technicians.length;
+        console.debug('[AdminDashboard] Base counts loaded.', {
+            locations: locations.length,
+            services: services.length,
+            technicians: technicians.length
+        });
 
         let resourcesCount = 0;
         for (const location of locations) {
@@ -114,20 +120,32 @@ const refreshData = async () => {
             }
         }
         metrics.value.resources = resourcesCount;
+        console.debug('[AdminDashboard] Resource count aggregated.', { resources: resourcesCount });
 
         const today = formatDate(new Date());
         const shifts = await getShifts({ start_date: today });
         metrics.value.shifts = shifts.length;
         upcomingShifts.value = shifts.slice(0, 5);
+        console.debug('[AdminDashboard] Upcoming shifts loaded.', {
+            totalShifts: shifts.length,
+            preview: upcomingShifts.value
+        });
     } catch (error) {
         console.error('加载仪表盘数据失败:', error);
         uni.showToast({ title: '仪表盘加载失败', icon: 'error' });
     } finally {
         isLoading.value = false;
+        console.debug('[AdminDashboard] Refresh complete.', {
+            metrics: { ...metrics.value },
+            upcomingShifts: upcomingShifts.value
+        });
     }
 };
 
-onMounted(refreshData);
+onMounted(() => {
+    console.debug('[AdminDashboard] Mounted, loading initial data.');
+    refreshData();
+});
 </script>
 
 <style scoped>
