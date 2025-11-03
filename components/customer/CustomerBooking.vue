@@ -285,7 +285,6 @@ const canQuery = computed(() => {
 
 const cartItems = computed(() => {
     currentTick.value; // ensure countdown updates reactively
-    cartStore.pruneExpired();
     return cartStore.activeItems.map((item) => ({
         ...item,
         displayTime: formatSlotTime(item.startTimeISO)
@@ -582,6 +581,7 @@ watch(selectedServiceUids, () => {
 });
 
 onMounted(async () => {
+    cartStore.pruneExpired();
     await loadLocations();
     await updateDateOptions();
     await updateServices();

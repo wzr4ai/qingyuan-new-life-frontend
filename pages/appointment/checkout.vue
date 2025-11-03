@@ -45,7 +45,7 @@ const currentTick = ref(Date.now());
 let timer = null;
 
 const items = computed(() => {
-    cartStore.pruneExpired();
+    currentTick.value; // trigger updates
     return cartStore.activeItems.map((item) => ({
         ...item,
         displayTime: formatTime(item.startTimeISO)
@@ -98,6 +98,7 @@ const handleSubmit = () => {
 };
 
 onMounted(() => {
+    cartStore.pruneExpired();
     timer = setInterval(() => {
         currentTick.value = Date.now();
         cartStore.pruneExpired();
