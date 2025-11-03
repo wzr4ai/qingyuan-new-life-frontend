@@ -15,7 +15,7 @@
 				:title="item.name"
 				:note="item.address || '未设置地址'"
 				showArrow
-				@click="openEditForm(item)"
+				@click="handleItemOptions(item)"
 			>
                 </uni-list-item>
 		</uni-list>
@@ -45,7 +45,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 // 导入我们已经写好的所有 admin API
-import { getLocations, createLocation, updateLocation } from '@/api/admin.js';
+import { getLocations, createLocation, updateLocation, deleteLocation } from '@/api/admin.js';
 
 // --- 1. 列表数据 ---
 const locationList = ref([]);
@@ -94,6 +94,49 @@ const openEditForm = (item) => {
 	isEditMode.value = true;
 	formData.value = { ...item }; // 复制数据到表单
 	formPopup.value.open();
+};
+
+const handleItemOptions = (item) => {
+    uni.showActionSheet({
+        itemList: ['编辑', '删除'],
+        success: ({ tapIndex }) => {
+            if (tapIndex === 0) {
+                openEditForm(item);
+            } else if (tapIndex === 1) {
+                confirmDelete(item);
+            }
+        }
+    });
+};
+
+const confirmDelete = (item) => {
+    uni.showModal({
+        title: '确认删除',
+        content: `确定删除地点「${item.name}」吗？`,
+        confirmText: '删除',
+        confirmColor: '#e43d33',
+        success: async (res) => {
+            if (!res.confirm) {
+                return;
+            }
+            await deleteLocationItem(item);
+        }
+    });
+};
+
+const deleteLocationItem = async (item) => {
+    if (isLoading.value) return;
+    isLoading.value = true;
+    try {
+        await deleteLocation(item.uid);
+        uni.showToast({ title: '删除成功', icon: 'success' });
+        await fetchLocations();
+    } catch (error) {
+        console.error('删除地点失败:', error);
+        uni.showToast({ title: error.data?.detail || '删除失败', icon: 'error' });
+    } finally {
+        isLoading.value = false;
+    }
 };
 
 // 提交表单 (新建或编辑)

@@ -15,7 +15,7 @@
                 :title="item.name"
                 :note="formatServiceNote(item)"
                 showArrow
-                @click="openEditForm(item)"
+                @click="handleItemOptions(item)"
             >
             </uni-list-item>
         </uni-list>
@@ -81,7 +81,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { getServices, createService, updateService } from '@/api/admin.js';
+import { getServices, createService, updateService, deleteService } from '@/api/admin.js';
 
 const serviceList = ref([]);
 const isSubmitting = ref(false);
@@ -133,6 +133,51 @@ const openEditForm = (item) => {
         buffer_time: item.buffer_time != null ? String(item.buffer_time) : ''
     };
     formPopup.value.open();
+};
+
+const handleItemOptions = (item) => {
+    uni.showActionSheet({
+        itemList: ['编辑', '删除'],
+        success: ({ tapIndex }) => {
+            if (tapIndex === 0) {
+                openEditForm(item);
+            } else if (tapIndex === 1) {
+                confirmDelete(item);
+            }
+        }
+    });
+};
+
+const confirmDelete = (item) => {
+    uni.showModal({
+        title: '确认删除',
+        content: `确定删除服务「${item.name}」吗？`,
+        confirmText: '删除',
+        confirmColor: '#e43d33',
+        success: async (res) => {
+            if (!res.confirm) {
+                return;
+            }
+            await deleteServiceItem(item);
+        }
+    });
+};
+
+const deleteServiceItem = async (item) => {
+    if (isSubmitting.value) {
+        return;
+    }
+    isSubmitting.value = true;
+    try {
+        await deleteService(item.uid);
+        uni.showToast({ title: '删除成功', icon: 'success' });
+        await fetchServices();
+    } catch (error) {
+        console.error('删除服务失败:', error);
+        uni.showToast({ title: error.data?.detail || '删除失败', icon: 'error' });
+    } finally {
+        isSubmitting.value = false;
+    }
 };
 
 const handleSubmit = async () => {

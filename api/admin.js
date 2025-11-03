@@ -24,6 +24,9 @@ export const createLocation = (data) => {
 export const updateLocation = (uid, data) => {
     return request({ url: `/admin/locations/${uid}`, method: 'PUT', data });
 };
+export const deleteLocation = (uid) => {
+    return request({ url: `/admin/locations/${uid}`, method: 'DELETE' });
+};
 
 /**
  * 服务 (Services)
@@ -36,6 +39,9 @@ export const createService = (data) => {
 };
 export const updateService = (uid, data) => {
     return request({ url: `/admin/services/${uid}`, method: 'PUT', data });
+};
+export const deleteService = (uid) => {
+    return request({ url: `/admin/services/${uid}`, method: 'DELETE' });
 };
 
 /**
@@ -50,6 +56,9 @@ export const getResourcesByLocation = (locationUid) => {
 };
 export const updateResource = (uid, data) => {
     return request({ url: `/admin/resources/${uid}`, method: 'PUT', data });
+};
+export const deleteResource = (uid) => {
+    return request({ url: `/admin/resources/${uid}`, method: 'DELETE' });
 };
 
 /**
