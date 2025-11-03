@@ -1,4 +1,4 @@
-import CustomerHome from '@/components/customer/CustomerHome.vue';
+import CustomerBooking from '@/components/customer/CustomerBooking.vue';
 import CustomerAppointments from '@/components/customer/CustomerAppointments.vue';
 import TechnicianAppointments from '@/components/technician/TechnicianAppointments.vue';
 import AdminDashboard from '@/components/admin/AdminDashboard.vue';
@@ -15,7 +15,7 @@ const buildTabs = (tabs) => tabs.map((tab) => ({
 
 export const ROLE_TAB_CONFIG = {
     customer: buildTabs([
-        { tabText: '预约', navTitle: '预约', component: CustomerHome },
+        { tabText: '预约', navTitle: '预约', component: CustomerBooking },
         { tabText: '我的预约', navTitle: '我的预约', component: CustomerAppointments },
         { tabText: '个人中心', navTitle: '个人中心', component: ProfileCenter },
         { tabText: '敬请期待', navTitle: '敬请期待', component: ComingSoon }

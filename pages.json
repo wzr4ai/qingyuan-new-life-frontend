@@ -7,12 +7,18 @@
 				"navigationBarTitleText": "预约"
 			}
 		},
-		{
-			"path": "pages/appointment/list",
-			"style": {
-				"navigationBarTitleText": "我的预约"
-			}
-		},
+	{
+		"path": "pages/appointment/list",
+		"style": {
+			"navigationBarTitleText": "我的预约"
+		}
+	},
+	{
+		"path": "pages/appointment/checkout",
+		"style": {
+			"navigationBarTitleText": "确认预约"
+		}
+	},
 		{
 			"path": "pages/profile/index",
 			"style": {

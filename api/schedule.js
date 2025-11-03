@@ -8,6 +8,39 @@ export const getScheduleLocations = () => {
     return request({ url: '/schedule/locations' });
 };
 
+export const getLocationDays = (locationUid, days = 14) => {
+    return request({
+        url: '/schedule/location-days',
+        data: {
+            location_uid: locationUid,
+            days
+        }
+    });
+};
+
+export const getLocationServices = (locationUid) => {
+    return request({
+        url: '/schedule/location-services',
+        data: { location_uid: locationUid }
+    });
+};
+
+export const getLocationTechnicians = (payload) => {
+    return request({
+        url: '/schedule/location-technicians',
+        method: 'POST',
+        data: payload
+    });
+};
+
+export const queryPackageAvailability = (payload) => {
+    return request({
+        url: '/schedule/package-availability',
+        method: 'POST',
+        data: payload
+    });
+};
+
 /**
  * 技师排班日历（当前登录用户）
  */

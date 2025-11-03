@@ -1,5 +1,5 @@
 <template>
-    <CustomerHome v-if="resolvedKey === 'customer-home'" />
+    <CustomerBooking v-if="resolvedKey === 'customer-home'" />
     <CustomerAppointments v-else-if="resolvedKey === 'customer-appointments'" />
     <ScheduleBoard v-else-if="resolvedKey === 'technician-schedule'" />
     <TechnicianAppointments v-else-if="resolvedKey === 'technician-appointments'" />
@@ -12,7 +12,7 @@
 
 <script setup>
 import { computed, watch } from 'vue';
-import CustomerHome from '@/components/customer/CustomerHome.vue';
+import CustomerBooking from '@/components/customer/CustomerBooking.vue';
 import CustomerAppointments from '@/components/customer/CustomerAppointments.vue';
 import TechnicianAppointments from '@/components/technician/TechnicianAppointments.vue';
 import AdminDashboard from '@/components/admin/AdminDashboard.vue';
@@ -29,7 +29,7 @@ const props = defineProps({
 });
 
 const registry = [
-    { key: 'customer-home', component: CustomerHome },
+    { key: 'customer-home', component: CustomerBooking },
     { key: 'customer-appointments', component: CustomerAppointments },
     { key: 'technician-schedule', component: ScheduleBoard },
     { key: 'technician-appointments', component: TechnicianAppointments },
