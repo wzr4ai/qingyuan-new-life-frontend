@@ -9,8 +9,8 @@ const customerTabBar = {
         { "pagePath": "pages/appointment/list", "text": "我的预约" },
         { "pagePath": "pages/profile/index", "text": "我的" },
         // --- 第 4 个 Tab (客户用不到，但必须填充以匹配 pages.json) ---
-        // 我们可以让它指向 "我的"，或者一个空页面，或者稍后用 uni.hideTabBarItem 隐藏
-        { "pagePath": "pages/profile/index", "text": "" } // 文字设为空
+        // 统一指向占位页，避免与其他 Tab 重复导致编译错误
+        { "pagePath": "pages/placeholder/index", "text": "" } // 文字设为空
     ]
 };
 
@@ -20,7 +20,7 @@ const technicianTabBar = {
         { "pagePath": "pages/tech/appointments", "text": "我的预约" },
         { "pagePath": "pages/profile/index", "text": "我的" },
         // --- 第 4 个 Tab (技师用不到) ---
-        { "pagePath": "pages/profile/index", "text": "" } 
+        { "pagePath": "pages/placeholder/index", "text": "" } 
     ]
 };
 

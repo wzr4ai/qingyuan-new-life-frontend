@@ -90,6 +90,14 @@
 			"style": {
 				"navigationBarTitleText": "排班详情" 
 			}
+		},
+
+		// --- 5. TabBar 占位页面 ---
+		{
+			"path": "pages/placeholder/index",
+			"style": {
+				"navigationBarTitleText": "敬请期待"
+			}
 		}
 
 		// --- (已移除) 登录页 ---
@@ -133,8 +141,8 @@
 			},
 			{
 				// 第四个 Tab 占位符, 必须存在
-				"pagePath": "pages/profile/index", // 指向一个通用页面
-				"text": "占位4" 
+				"pagePath": "pages/placeholder/index", // 指向专用占位页面，避免重复
+				"text": "占位4"
 				// "iconPath": "static/tab_icons/...",
 				// "selectedIconPath": "static/tab_icons/..."
 			}
