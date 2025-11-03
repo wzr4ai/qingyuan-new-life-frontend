@@ -2,41 +2,32 @@
     <scroll-view class="booking-container" scroll-y>
         <view class="section">
             <view class="section-header">
-                <text class="section-title">选择地点</text>
+                <text class="section-title">到店信息</text>
             </view>
-            <picker
-                mode="selector"
-                :range="locationOptions"
-                range-key="name"
-                :value="selectedLocationIndex"
-                @change="handleLocationChange"
-            >
-                <view class="selector">
-                    {{ currentLocation?.name || '请选择地点' }}
-                    <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                </view>
-            </picker>
-        </view>
-
-        <view class="section" v-if="dateOptions.length">
-            <view class="section-header">
-                <text class="section-title">选择日期</text>
-            </view>
-            <scroll-view class="date-scroll" scroll-x>
-                <view
-                    v-for="item in dateOptions"
-                    :key="item.date"
-                    class="date-chip"
-                    :class="{
-                        active: item.date === selectedDate,
-                        disabled: !item.hasShift
-                    }"
-                    @click="() => handleDateSelect(item)"
+            <view class="info-grid">
+                <picker
+                    mode="selector"
+                    :range="locationOptions"
+                    range-key="name"
+                    :value="selectedLocationIndex"
+                    @change="handleLocationChange"
                 >
-                    <text class="date-text">{{ item.display }}</text>
-                    <text class="weekday-text">{{ item.weekday }}</text>
-                </view>
-            </scroll-view>
+                    <view class="selector">
+                        {{ currentLocation?.name || '请选择地点' }}
+                        <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                    </view>
+                </picker>
+                <button
+                    class="selector"
+                    :disabled="!dateOptions.length"
+                    @click="openDatePopup"
+                >
+                    <view class="date-button">
+                        <text>{{ selectedDateDisplay }}</text>
+                        <uni-icons type="calendar" size="16" color="#666"></uni-icons>
+                    </view>
+                </button>
+            </view>
         </view>
 
         <view class="section">
@@ -190,6 +181,39 @@
             </view>
         </view>
     </uni-popup>
+
+    <uni-popup ref="datePopup" type="bottom" background-color="#ffffff">
+        <view class="date-popup">
+            <view class="popup-header">
+                <text>选择预约日期</text>
+                <uni-icons type="close" size="18" color="#666" @click="closeDatePopup"></uni-icons>
+            </view>
+            <view v-if="dateWeeks.length" class="date-week-list">
+                <view
+                    v-for="(week, index) in dateWeeks"
+                    :key="index"
+                    class="date-week-row"
+                >
+                    <button
+                        v-for="item in week"
+                        :key="item.date"
+                        class="date-chip"
+                        :class="{
+                            active: item.date === selectedDate,
+                            disabled: !item.hasShift
+                        }"
+                        @click="() => handleDateSelect(item)"
+                    >
+                        <text class="date-text">{{ item.display }}</text>
+                        <text class="weekday-text">{{ item.weekday }}</text>
+                    </button>
+                </view>
+            </view>
+            <view v-else class="times-empty">
+                <text>暂无可预约日期</text>
+            </view>
+        </view>
+    </uni-popup>
 </template>
 
 <script setup>
@@ -304,6 +328,37 @@ const cartSummary = computed(() => {
     return { count, countdown };
 });
 
+const dateWeeks = computed(() => {
+    const weeks = [];
+    let currentWeek = [];
+    dateOptions.value.forEach((item, index) => {
+        currentWeek.push(item);
+        if ((index + 1) % 7 === 0) {
+            weeks.push(currentWeek);
+            currentWeek = [];
+        }
+    });
+    if (currentWeek.length) {
+        weeks.push(currentWeek);
+    }
+    return weeks;
+});
+
+const selectedDateDisplay = computed(() => {
+    if (!selectedDate.value) {
+        return '选择日期';
+    }
+    const option = dateOptions.value.find((item) => item.date === selectedDate.value);
+    if (option) {
+        return `${option.display} ${option.weekday}`;
+    }
+    const parsed = new Date(selectedDate.value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '选择日期';
+    }
+    return `${formatDisplayDate(selectedDate.value)} ${formatWeekday(parsed)}`;
+});
+
 const calculatePackageDurations = () => {
     const serviceOrder = orderedServiceUids.value.length ? orderedServiceUids.value : selectedServiceUids.value;
     let technicianTotal = 0;
@@ -365,8 +420,12 @@ const updateDateOptions = async () => {
             display: formatDisplayDate(item.date)
         }));
         dateOptions.value = formatted;
+        const tomorrowISO = getISODate(addDays(new Date(), 1));
+        const tomorrowOption = formatted.find((item) => item.date === tomorrowISO && item.hasShift);
         const firstAvailable = formatted.find((item) => item.hasShift);
-        selectedDate.value = firstAvailable ? firstAvailable.date : (formatted[0]?.date || '');
+        selectedDate.value = (tomorrowOption && tomorrowOption.date) ||
+            (firstAvailable && firstAvailable.date) ||
+            (formatted[0]?.date || '');
     } catch (error) {
         console.error('加载可用日期失败:', error);
     }
@@ -420,6 +479,8 @@ const handleDateSelect = (item) => {
         return;
     }
     selectedDate.value = item.date;
+    availableSlots.value = [];
+    closeDatePopup();
 };
 
 const handleServiceChange = (event) => {
@@ -445,6 +506,7 @@ const handleServiceOrderChange = (event) => {
 
 const handleTechnicianPreference = (event) => {
     preferredTechnicianUid.value = event.detail?.value || 'any';
+    availableSlots.value = [];
 };
 
 const handleAttendeeChange = (event) => {
@@ -503,6 +565,18 @@ const closeTimesPopup = () => {
     timesPopup.value?.close();
 };
 
+const openDatePopup = () => {
+    if (!dateOptions.value.length) {
+        uni.showToast({ title: '暂无可选日期', icon: 'none' });
+        return;
+    }
+    datePopup.value?.open();
+};
+
+const closeDatePopup = () => {
+    datePopup.value?.close();
+};
+
 const handleSelectSlot = (slot) => {
     const { total, serviceOrder } = calculatePackageDurations();
     const totalMinutes = total || 0;
@@ -541,21 +615,39 @@ const goCheckout = () => {
     uni.navigateTo({ url: '/pages/appointment/checkout' });
 };
 
-const formatDisplayDate = (value) => {
+function addDays(date, amount) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    return next;
+}
+
+function getISODate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(value) {
     const date = new Date(value);
     const month = date.getMonth() + 1;
     const day = date.getDate();
     return `${month}月${day}日`;
-};
+}
 
-const formatSlotTime = (value) => {
+function formatSlotTime(value) {
     const date = new Date(value);
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
-};
+}
 
-const formatCountdown = (ms) => {
+function formatWeekday(date) {
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return weekdays[date.getDay()];
+}
+
+function formatCountdown(ms) {
     if (!ms || ms <= 0) {
         return '00:00';
     }
@@ -563,12 +655,13 @@ const formatCountdown = (ms) => {
     const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
     return `${minutes}:${seconds}`;
-};
+}
 
 watch(selectedLocationUid, async (next) => {
     if (!next) {
         return;
     }
+    closeDatePopup();
     await updateDateOptions();
     await updateServices();
     await updateTechnicians();
@@ -634,18 +727,32 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     background-color: #ffffff;
+    width: 100%;
+    line-height: 1.4;
+    color: #303133;
 }
 
-.date-scroll {
+.selector:disabled {
+    color: #c0c4cc;
+    border-color: #eaeaea;
+}
+
+.info-grid {
     display: flex;
-    gap: 8px;
-    padding: 4px 0;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.date-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
 }
 
 .date-chip {
     min-width: 96px;
     padding: 10px;
-    margin-right: 8px;
     border-radius: 10px;
     border: 1px solid #e5e5e5;
     background-color: #ffffff;
@@ -662,6 +769,7 @@ onBeforeUnmount(() => {
 
 .date-chip.disabled {
     opacity: 0.4;
+    pointer-events: none;
 }
 
 .date-text {
@@ -798,6 +906,23 @@ onBeforeUnmount(() => {
     padding: 20px 0;
     text-align: center;
     color: #909399;
+}
+
+.date-popup {
+    padding: 16px;
+}
+
+.date-week-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.date-week-row {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
 }
 
 .cart-preview {
