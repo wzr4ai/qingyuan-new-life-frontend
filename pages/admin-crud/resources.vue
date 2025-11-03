@@ -95,7 +95,8 @@ const isSubmitting = ref(false);
 const formData = ref({
     uid: null,
     name: '',
-    location_uid: ''
+    location_uid: '',
+    type: 'room'
 });
 
 const currentLocationName = computed(() => {
@@ -154,7 +155,8 @@ const openCreateForm = () => {
     formData.value = {
         uid: null,
         name: '',
-        location_uid: locationList.value[formLocationIndex.value]?.uid || ''
+        location_uid: locationList.value[formLocationIndex.value]?.uid || '',
+        type: 'room'
     };
     formPopup.value.open();
 };
@@ -167,7 +169,8 @@ const openEditForm = (item) => {
     formData.value = {
         uid: item.uid,
         name: item.name,
-        location_uid: item.location?.uid || ''
+        location_uid: item.location?.uid || '',
+        type: item.type || 'room'
     };
     formPopup.value.open();
 };
@@ -189,7 +192,8 @@ const handleSubmit = async () => {
     try {
         const payload = {
             name: formData.value.name,
-            location_uid: location.uid
+            location_uid: location.uid,
+            type: formData.value.type || 'room'
         };
         if (isEditMode.value && formData.value.uid) {
             await updateResource(formData.value.uid, payload);
