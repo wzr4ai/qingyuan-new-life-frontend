@@ -41,6 +41,11 @@ const menuItems = ref([
 		title: '技师管理',
 		note: '管理技师角色和技能',
 		path: '/pages/admin-crud/technicians'
+	},
+	{
+		title: '排班管理',
+		note: '查看并调整技师排班',
+		path: '/pages/admin-crud/shifts'
 	}
 ]);
 </script>

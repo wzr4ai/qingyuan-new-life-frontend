@@ -16,28 +16,28 @@
                 </picker>
                 <button class="primary-btn" @click="openCreateForm" :disabled="!locationList.length">
                     <uni-icons type="plusempty" color="#fff" size="16"></uni-icons>
-                    新建资源
+                    新建
                 </button>
             </view>
         </view>
 
-        <view class="data-table">
-            <uni-table border stripe emptyText="请选择地点后查看资源">
-                <uni-tr>
-                    <uni-th align="left">资源名称</uni-th>
-                    <uni-th align="left">所属地点</uni-th>
-                    <uni-th align="left">UID</uni-th>
-                    <uni-th align="center" width="150">操作</uni-th>
-                </uni-tr>
-                <uni-tr v-for="item in resourceList" :key="item.uid">
-                    <uni-td>{{ item.name }}</uni-td>
-                    <uni-td>{{ item.location?.name || '-' }}</uni-td>
-                    <uni-td>{{ item.uid }}</uni-td>
-                    <uni-td align="center">
-                        <text class="link-btn" @click="openEditForm(item)">编辑</text>
-                    </uni-td>
-                </uni-tr>
-            </uni-table>
+        <uni-list :border="true">
+            <uni-list-item
+                v-for="item in resourceList"
+                :key="item.uid"
+                :title="item.name"
+                :note="`地点：${item.location?.name || '-'}`"
+                showArrow
+                @click="openEditForm(item)"
+            >
+            </uni-list-item>
+        </uni-list>
+
+        <view v-if="locationList.length && !resourceList.length" class="empty-state">
+            <text>该地点暂无资源，点击“新建”快速添加。</text>
+        </view>
+        <view v-else-if="!locationList.length" class="empty-state">
+            <text>请先在后台创建地点，再添加资源。</text>
         </view>
 
         <uni-popup ref="formPopup" type="dialog">
@@ -46,6 +46,8 @@
                 :title="formTitle"
                 confirmText="提交"
                 @confirm="handleSubmit"
+                :before-close="true"
+                @close="formPopup.close()"
             >
                 <view class="form-body">
                     <input
@@ -53,21 +55,18 @@
                         v-model="formData.name"
                         placeholder="资源名称"
                     />
-                    <view class="popup-picker">
-                        <text class="picker-label">所属地点</text>
-                        <picker
-                            mode="selector"
-                            :range="locationList"
-                            range-key="name"
-                            @change="handleFormLocationChange"
-                            :value="formLocationIndex"
-                        >
-                            <view class="selector selector-inline">
-                                {{ locationList[formLocationIndex]?.name || '请选择地点' }}
-                                <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                            </view>
-                        </picker>
-                    </view>
+                    <picker
+                        mode="selector"
+                        :range="locationList"
+                        range-key="name"
+                        @change="handleFormLocationChange"
+                        :value="formLocationIndex"
+                    >
+                        <view class="selector selector-inline">
+                            {{ locationList[formLocationIndex]?.name || '请选择地点' }}
+                            <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                        </view>
+                    </picker>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -83,24 +82,16 @@ import {
     updateResource
 } from '@/api/admin.js';
 
-// #ifdef H5
-onMounted(() => {
-    setTimeout(() => {
-        uni.sendSocketMessage({ data: 'routeChange' });
-    }, 200);
-});
-// #endif
-
 const locationList = ref([]);
 const resourceList = ref([]);
 const selectedLocationIndex = ref(0);
-const isLoading = ref(false);
+const formLocationIndex = ref(0);
 
 const formPopup = ref(null);
 const formTitle = ref('新建资源');
 const isEditMode = ref(false);
 const isSubmitting = ref(false);
-const formLocationIndex = ref(0);
+
 const formData = ref({
     uid: null,
     name: '',
@@ -116,16 +107,16 @@ const currentLocationName = computed(() => {
 
 const fetchLocations = async () => {
     try {
-        const data = await getLocations();
-        locationList.value = data;
-        if (data.length) {
+        const locations = await getLocations();
+        locationList.value = locations;
+        if (locations.length) {
             selectedLocationIndex.value = 0;
             await fetchResources();
         } else {
             resourceList.value = [];
         }
     } catch (error) {
-        console.error('获取地点失败:', error);
+        console.error('加载地点失败:', error);
         uni.showToast({ title: '加载地点失败', icon: 'error' });
     }
 };
@@ -136,15 +127,12 @@ const fetchResources = async () => {
         resourceList.value = [];
         return;
     }
-    isLoading.value = true;
     try {
         const data = await getResourcesByLocation(location.uid);
         resourceList.value = data;
     } catch (error) {
-        console.error('获取资源失败:', error);
+        console.error('加载资源失败:', error);
         uni.showToast({ title: '加载资源失败', icon: 'error' });
-    } finally {
-        isLoading.value = false;
     }
 };
 
@@ -162,25 +150,25 @@ const handleFormLocationChange = (event) => {
 const openCreateForm = () => {
     formTitle.value = '新建资源';
     isEditMode.value = false;
+    formLocationIndex.value = selectedLocationIndex.value;
     formData.value = {
         uid: null,
         name: '',
-        location_uid: locationList.value[selectedLocationIndex.value]?.uid || ''
+        location_uid: locationList.value[formLocationIndex.value]?.uid || ''
     };
-    formLocationIndex.value = selectedLocationIndex.value;
     formPopup.value.open();
 };
 
 const openEditForm = (item) => {
     formTitle.value = `编辑：${item.name}`;
     isEditMode.value = true;
+    const index = locationList.value.findIndex((loc) => loc.uid === item.location?.uid);
+    formLocationIndex.value = index >= 0 ? index : 0;
     formData.value = {
         uid: item.uid,
         name: item.name,
         location_uid: item.location?.uid || ''
     };
-    const index = locationList.value.findIndex((loc) => loc.uid === formData.value.location_uid);
-    formLocationIndex.value = index >= 0 ? index : 0;
     formPopup.value.open();
 };
 
@@ -242,7 +230,16 @@ const handleSubmit = async () => {
 }
 
 .selector-inline {
-    margin-top: 8px;
+    margin-top: 10px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #888888;
+    padding: 40px 20px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    margin-top: 20px;
 }
 
 .popup-input {
@@ -253,18 +250,10 @@ const handleSubmit = async () => {
     margin-bottom: 10px;
 }
 
-.popup-picker {
-    margin-top: 10px;
-}
-
-.picker-label {
-    font-size: 14px;
-    color: #666666;
-}
-
 .form-body {
     padding: 10px;
     display: flex;
     flex-direction: column;
+    gap: 12px;
 }
 </style>

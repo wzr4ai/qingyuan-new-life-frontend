@@ -4,29 +4,24 @@
             <text class="title">服务管理</text>
             <button class="primary-btn" @click="openCreateForm">
                 <uni-icons type="plusempty" color="#fff" size="16"></uni-icons>
-                新建服务
+                新建
             </button>
         </view>
 
-        <view class="data-table">
-            <uni-table border stripe emptyText="暂无数据">
-                <uni-tr>
-                    <uni-th align="left">服务名称</uni-th>
-                    <uni-th align="center">技师耗时 (分钟)</uni-th>
-                    <uni-th align="center">房间占用 (分钟)</uni-th>
-                    <uni-th align="center">缓冲时间 (分钟)</uni-th>
-                    <uni-th align="center" width="150">操作</uni-th>
-                </uni-tr>
-                <uni-tr v-for="item in serviceList" :key="item.uid">
-                    <uni-td>{{ item.name }}</uni-td>
-                    <uni-td align="center">{{ item.technician_operation_duration }}</uni-td>
-                    <uni-td align="center">{{ item.room_operation_duration }}</uni-td>
-                    <uni-td align="center">{{ item.buffer_time }}</uni-td>
-                    <uni-td align="center">
-                        <text class="link-btn" @click="openEditForm(item)">编辑</text>
-                    </uni-td>
-                </uni-tr>
-            </uni-table>
+        <uni-list :border="true">
+            <uni-list-item
+                v-for="item in serviceList"
+                :key="item.uid"
+                :title="item.name"
+                :note="formatServiceNote(item)"
+                showArrow
+                @click="openEditForm(item)"
+            >
+            </uni-list-item>
+        </uni-list>
+
+        <view v-if="!serviceList.length" class="empty-state">
+            <text>暂无服务，请点击“新建”添加项目。</text>
         </view>
 
         <uni-popup ref="formPopup" type="dialog">
@@ -35,6 +30,8 @@
                 :title="formTitle"
                 confirmText="提交"
                 @confirm="handleSubmit"
+                :before-close="true"
+                @close="formPopup.close()"
             >
                 <view class="form-body">
                     <input
@@ -58,7 +55,7 @@
                         class="popup-input"
                         type="number"
                         v-model.number="formData.buffer_time"
-                        placeholder="缓冲时间 (分钟)"
+                        placeholder="缓冲时间 (分钟，可选)"
                     />
                 </view>
             </uni-popup-dialog>
@@ -70,19 +67,12 @@
 import { onMounted, ref } from 'vue';
 import { getServices, createService, updateService } from '@/api/admin.js';
 
-// #ifdef H5
-onMounted(() => {
-    setTimeout(() => {
-        uni.sendSocketMessage({ data: 'routeChange' });
-    }, 200);
-});
-// #endif
-
 const serviceList = ref([]);
+const isSubmitting = ref(false);
+
 const formPopup = ref(null);
 const formTitle = ref('新建服务');
 const isEditMode = ref(false);
-const isSubmitting = ref(false);
 
 const defaultForm = {
     uid: null,
@@ -98,12 +88,16 @@ const fetchServices = async () => {
         const data = await getServices();
         serviceList.value = data;
     } catch (error) {
-        console.error('获取服务列表失败:', error);
+        console.error('加载服务失败:', error);
         uni.showToast({ title: '加载失败', icon: 'error' });
     }
 };
 
 onMounted(fetchServices);
+
+const formatServiceNote = (item) => {
+    return `技师 ${item.technician_operation_duration} 分钟 · 房间 ${item.room_operation_duration} 分钟 · 缓冲 ${item.buffer_time || 0} 分钟`;
+};
 
 const openCreateForm = () => {
     formTitle.value = '新建服务';
@@ -150,7 +144,7 @@ const handleSubmit = async () => {
             uni.showToast({ title: '创建成功', icon: 'success' });
         }
         formPopup.value.close();
-        fetchServices();
+        await fetchServices();
     } catch (error) {
         console.error('保存服务失败:', error);
         uni.showToast({ title: error.data?.detail || '操作失败', icon: 'error' });
@@ -162,6 +156,15 @@ const handleSubmit = async () => {
 
 <style scoped>
 @import '/static/css/admin.css';
+
+.empty-state {
+    text-align: center;
+    color: #888888;
+    padding: 40px 20px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    margin-top: 20px;
+}
 
 .popup-input {
     height: 40px;

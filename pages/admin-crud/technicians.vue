@@ -8,44 +8,42 @@
             </button>
         </view>
 
-        <view class="data-table">
-            <uni-table border stripe emptyText="暂无技师数据">
-                <uni-tr>
-                    <uni-th align="left">姓名/昵称</uni-th>
-                    <uni-th align="left">手机号</uni-th>
-                    <uni-th align="left">已分配服务</uni-th>
-                    <uni-th align="center" width="160">操作</uni-th>
-                </uni-tr>
-                <uni-tr v-for="item in technicianList" :key="item.uid">
-                    <uni-td>{{ item.nickname || '未设置昵称' }}</uni-td>
-                    <uni-td>{{ item.phone || '-' }}</uni-td>
-                    <uni-td>
-                        <view class="service-tags" v-if="item.services?.length">
-                            <uni-tag
-                                v-for="service in item.services"
-                                :key="service.uid"
-                                :text="service.name"
-                                size="small"
-                                type="primary"
-                                :closable="true"
-                                @close="confirmRemoveService(item, service)"
-                            ></uni-tag>
-                        </view>
-                        <view v-else class="empty-service">尚未分配服务</view>
-                    </uni-td>
-                    <uni-td align="center">
-                        <text class="link-btn" @click="openAssignPopup(item)">分配服务</text>
-                    </uni-td>
-                </uni-tr>
-            </uni-table>
+        <view v-for="item in technicianList" :key="item.uid" class="tech-card">
+            <view class="tech-header">
+                <view>
+                    <text class="tech-name">{{ item.nickname || '未命名技师' }}</text>
+                    <text class="tech-phone">{{ item.phone || '暂无手机号' }}</text>
+                </view>
+                <button class="secondary-btn" @click="openAssignPopup(item)">
+                    分配服务
+                </button>
+            </view>
+            <view class="tech-services" v-if="item.services?.length">
+                <uni-tag
+                    v-for="service in item.services"
+                    :key="service.uid"
+                    :text="service.name"
+                    size="small"
+                    type="primary"
+                    :closable="true"
+                    @close="confirmRemoveService(item, service)"
+                ></uni-tag>
+            </view>
+            <view v-else class="empty-service">尚未分配服务</view>
+        </view>
+
+        <view v-if="!technicianList.length" class="empty-state">
+            <text>暂无技师，请先通过后台创建技师账号。</text>
         </view>
 
         <uni-popup ref="assignPopup" type="dialog">
             <uni-popup-dialog
                 mode="input"
-                title="为技师分配服务"
+                title="分配服务"
                 confirmText="提交"
                 @confirm="handleAssign"
+                :before-close="true"
+                @close="assignPopup.close()"
             >
                 <view class="form-body">
                     <view class="popup-label">
@@ -78,14 +76,6 @@ import {
     removeServiceFromTech
 } from '@/api/admin.js';
 
-// #ifdef H5
-onMounted(() => {
-    setTimeout(() => {
-        uni.sendSocketMessage({ data: 'routeChange' });
-    }, 200);
-});
-// #endif
-
 const technicianList = ref([]);
 const serviceList = ref([]);
 const isLoading = ref(false);
@@ -97,9 +87,12 @@ const selectedServiceIndex = ref(-1);
 const fetchTechnicians = async () => {
     try {
         const data = await getTechnicians();
-        technicianList.value = data;
+        technicianList.value = data.map((item) => ({
+            ...item,
+            nickname: item.nickname || item.phone || '未命名技师'
+        }));
     } catch (error) {
-        console.error('获取技师失败:', error);
+        console.error('加载技师失败:', error);
         uni.showToast({ title: '加载技师失败', icon: 'error' });
     }
 };
@@ -109,7 +102,7 @@ const fetchServices = async () => {
         const data = await getServices();
         serviceList.value = data;
     } catch (error) {
-        console.error('获取服务失败:', error);
+        console.error('加载服务失败:', error);
         uni.showToast({ title: '加载服务失败', icon: 'error' });
     }
 };
@@ -182,25 +175,54 @@ const confirmRemoveService = (technician, service) => {
 <style scoped>
 @import '/static/css/admin.css';
 
-.service-tags {
+.tech-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.tech-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tech-name {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.tech-phone {
+    font-size: 14px;
+    color: #888888;
+    display: block;
+}
+
+.tech-services {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin-top: 12px;
 }
 
 .empty-service {
+    margin-top: 12px;
     color: #888888;
 }
 
-.form-body {
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.empty-state {
+    text-align: center;
+    color: #888888;
+    padding: 40px 20px;
 }
 
-.popup-label {
-    font-weight: 600;
+.secondary-btn {
+    border: 1px solid #dddddd;
+    background-color: #ffffff;
+    border-radius: 6px;
+    padding: 6px 12px;
 }
 
 .selector {
@@ -212,5 +234,20 @@ const confirmRemoveService = (technician, service) => {
     align-items: center;
     justify-content: space-between;
     background-color: #ffffff;
+}
+
+.selector-inline {
+    margin-top: 10px;
+}
+
+.form-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.popup-label {
+    font-weight: 600;
 }
 </style>

@@ -2,9 +2,9 @@
     <view class="admin-page-container">
         <view class="header">
             <text class="title">排班管理</text>
-            <button class="primary-btn" @click="openCreatePopup" :disabled="isSubmitting || !locationList.length || !technicianList.length">
+            <button class="primary-btn" @click="openCreatePopup" :disabled="!locationList.length || !technicianList.length">
                 <uni-icons type="plusempty" color="#fff" size="16"></uni-icons>
-                新建排班
+                新建
             </button>
         </view>
 
@@ -34,7 +34,7 @@
                 </view>
             </picker>
             <view class="date-picker">
-                <text class="label">开始日期</text>
+                <text class="label">开始</text>
                 <uni-datetime-picker
                     type="date"
                     v-model="filters.startDate"
@@ -43,7 +43,7 @@
                 ></uni-datetime-picker>
             </view>
             <view class="date-picker">
-                <text class="label">结束日期</text>
+                <text class="label">结束</text>
                 <uni-datetime-picker
                     type="date"
                     v-model="filters.endDate"
@@ -51,82 +51,65 @@
                     @change="fetchShifts"
                 ></uni-datetime-picker>
             </view>
-            <button class="secondary-btn" @click="resetFilters">重置</button>
         </view>
 
-        <view class="data-table">
-            <uni-table border stripe emptyText="暂无排班数据">
-                <uni-tr>
-                    <uni-th align="left">技师</uni-th>
-                    <uni-th align="left">地点</uni-th>
-                    <uni-th align="center">开始时间</uni-th>
-                    <uni-th align="center">结束时间</uni-th>
-                    <uni-th align="center" width="120">操作</uni-th>
-                </uni-tr>
-                <uni-tr v-for="item in shiftList" :key="item.uid">
-                    <uni-td>{{ item.technician?.nickname || item.technician?.phone || '未知技师' }}</uni-td>
-                    <uni-td>{{ item.location?.name || '-' }}</uni-td>
-                    <uni-td align="center">{{ formatDateTime(item.start_time) }}</uni-td>
-                    <uni-td align="center">{{ formatDateTime(item.end_time) }}</uni-td>
-                    <uni-td align="center">
-                        <text class="link-btn danger" @click="confirmDeleteShift(item)">删除</text>
-                    </uni-td>
-                </uni-tr>
-            </uni-table>
+        <view v-for="item in shiftList" :key="item.uid" class="shift-card">
+            <view class="shift-header">
+                <view>
+                    <text class="shift-title">{{ item.technician?.nickname || item.technician?.phone || '未知技师' }}</text>
+                    <text class="shift-location">{{ item.location?.name || '-' }}</text>
+                </view>
+                <button class="danger-btn" @click="confirmDeleteShift(item)">删除</button>
+            </view>
+            <text class="shift-time">{{ formatDateTime(item.start_time) }} - {{ formatDateTime(item.end_time) }}</text>
+        </view>
+
+        <view v-if="!shiftList.length" class="empty-state">
+            <text>暂无排班记录，可通过“新建”快速安排。</text>
         </view>
 
         <uni-popup ref="createPopup" type="dialog">
             <uni-popup-dialog
                 mode="input"
-                title="创建排班"
+                title="新建排班"
                 confirmText="提交"
                 @confirm="handleCreate"
+                :before-close="true"
+                @close="createPopup.close()"
             >
                 <view class="form-body">
-                    <view class="form-row">
-                        <text class="label required">技师</text>
-                        <picker
-                            mode="selector"
-                            :range="technicianList"
-                            range-key="nickname"
-                            @change="handleCreateTechnicianChange"
-                            :value="createForm.technicianIndex"
-                        >
-                            <view class="selector selector-inline">
-                                {{ technicianList[createForm.technicianIndex]?.nickname || '请选择技师' }}
-                                <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                            </view>
-                        </picker>
-                    </view>
-                    <view class="form-row">
-                        <text class="label required">地点</text>
-                        <picker
-                            mode="selector"
-                            :range="locationList"
-                            range-key="name"
-                            @change="handleCreateLocationChange"
-                            :value="createForm.locationIndex"
-                        >
-                            <view class="selector selector-inline">
-                                {{ locationList[createForm.locationIndex]?.name || '请选择地点' }}
-                                <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                            </view>
-                        </picker>
-                    </view>
-                    <view class="form-row">
-                        <text class="label required">开始时间</text>
-                        <uni-datetime-picker
-                            type="datetime"
-                            v-model="createForm.startTime"
-                        ></uni-datetime-picker>
-                    </view>
-                    <view class="form-row">
-                        <text class="label required">结束时间</text>
-                        <uni-datetime-picker
-                            type="datetime"
-                            v-model="createForm.endTime"
-                        ></uni-datetime-picker>
-                    </view>
+                    <picker
+                        mode="selector"
+                        :range="technicianList"
+                        range-key="nickname"
+                        @change="handleCreateTechnicianChange"
+                        :value="createForm.technicianIndex"
+                    >
+                        <view class="selector selector-inline">
+                            {{ technicianList[createForm.technicianIndex]?.nickname || '请选择技师' }}
+                            <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                        </view>
+                    </picker>
+                    <picker
+                        mode="selector"
+                        :range="locationList"
+                        range-key="name"
+                        @change="handleCreateLocationChange"
+                        :value="createForm.locationIndex"
+                    >
+                        <view class="selector selector-inline">
+                            {{ locationList[createForm.locationIndex]?.name || '请选择地点' }}
+                            <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                        </view>
+                    </picker>
+                    <uni-datetime-picker
+                        type="datetime"
+                        v-model="createForm.startTime"
+                    ></uni-datetime-picker>
+                    <uni-datetime-picker
+                        type="datetime"
+                        v-model="createForm.endTime"
+                    ></uni-datetime-picker>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -143,19 +126,9 @@ import {
     deleteShift
 } from '@/api/admin.js';
 
-// #ifdef H5
-onMounted(() => {
-    setTimeout(() => {
-        uni.sendSocketMessage({ data: 'routeChange' });
-    }, 200);
-});
-// #endif
-
 const shiftList = ref([]);
 const locationList = ref([]);
 const technicianList = ref([]);
-const isLoading = ref(false);
-const isSubmitting = ref(false);
 
 const filters = ref({
     locationIndex: 0,
@@ -164,16 +137,6 @@ const filters = ref({
     endDate: ''
 });
 
-const locationOptions = computed(() => [
-    { uid: '', name: '全部地点' },
-    ...locationList.value
-]);
-
-const technicianOptions = computed(() => [
-    { uid: '', nickname: '全部技师' },
-    ...technicianList.value
-]);
-
 const createPopup = ref(null);
 const createForm = ref({
     technicianIndex: 0,
@@ -181,15 +144,6 @@ const createForm = ref({
     startTime: '',
     endTime: ''
 });
-
-const formatDateTime = (value) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-    const pad = (num) => String(num).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
 
 const fetchDependencies = async () => {
     try {
@@ -209,10 +163,6 @@ const fetchDependencies = async () => {
 };
 
 const fetchShifts = async () => {
-    if (isLoading.value) {
-        return;
-    }
-    isLoading.value = true;
     try {
         const params = {};
         const locationOption = locationOptions.value[filters.value.locationIndex];
@@ -232,10 +182,8 @@ const fetchShifts = async () => {
         const data = await getShifts(params);
         shiftList.value = data;
     } catch (error) {
-        console.error('获取排班失败:', error);
+        console.error('加载排班失败:', error);
         uni.showToast({ title: '加载排班失败', icon: 'error' });
-    } finally {
-        isLoading.value = false;
     }
 };
 
@@ -251,16 +199,6 @@ const handleFilterLocationChange = async (event) => {
 
 const handleFilterTechnicianChange = async (event) => {
     filters.value.technicianIndex = Number(event.detail.value);
-    await fetchShifts();
-};
-
-const resetFilters = async () => {
-    filters.value = {
-        locationIndex: 0,
-        technicianIndex: 0,
-        startDate: '',
-        endDate: ''
-    };
     await fetchShifts();
 };
 
@@ -290,21 +228,17 @@ const handleCreate = async () => {
     const technician = technicianList.value[createForm.value.technicianIndex];
     const location = locationList.value[createForm.value.locationIndex];
     if (!technician || !location) {
-        uni.showToast({ title: '请选择技师与地点', icon: 'none' });
+        uni.showToast({ title: '请选择技师和地点', icon: 'none' });
         return;
     }
     if (!createForm.value.startTime || !createForm.value.endTime) {
-        uni.showToast({ title: '请选择开始和结束时间', icon: 'none' });
+        uni.showToast({ title: '请选择开始与结束时间', icon: 'none' });
         return;
     }
     if (new Date(createForm.value.startTime) >= new Date(createForm.value.endTime)) {
         uni.showToast({ title: '结束时间必须晚于开始时间', icon: 'none' });
         return;
     }
-    if (isSubmitting.value) {
-        return;
-    }
-    isSubmitting.value = true;
     try {
         await createShift({
             technician_uid: technician.uid,
@@ -318,8 +252,6 @@ const handleCreate = async () => {
     } catch (error) {
         console.error('创建排班失败:', error);
         uni.showToast({ title: error.data?.detail || '操作失败', icon: 'error' });
-    } finally {
-        isSubmitting.value = false;
     }
 };
 
@@ -341,6 +273,15 @@ const confirmDeleteShift = (shift) => {
         }
     });
 };
+
+const formatDateTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 </script>
 
 <style scoped>
@@ -349,7 +290,6 @@ const confirmDeleteShift = (shift) => {
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
     gap: 12px;
     margin-bottom: 20px;
 }
@@ -365,10 +305,14 @@ const confirmDeleteShift = (shift) => {
     background-color: #ffffff;
 }
 
+.selector-inline {
+    margin-top: 10px;
+}
+
 .date-picker {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .label {
@@ -376,29 +320,63 @@ const confirmDeleteShift = (shift) => {
     color: #666666;
 }
 
-.required::before {
-    content: '*';
-    color: #ff4d4f;
-    margin-right: 4px;
+.shift-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.shift-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shift-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.shift-location {
+    font-size: 14px;
+    color: #888888;
+}
+
+.shift-time {
+    display: block;
+    margin-top: 8px;
+    color: #555555;
+}
+
+.danger-btn {
+    border: 1px solid #f56c6c;
+    color: #f56c6c;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background-color: #ffffff;
+}
+
+.empty-state {
+    text-align: center;
+    color: #888888;
+    padding: 40px 20px;
 }
 
 .form-body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     padding: 10px;
 }
-
-.form-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.secondary-btn {
-    padding: 8px 16px;
-    border: 1px solid #dddddd;
-    background-color: #ffffff;
-    border-radius: 6px;
-}
 </style>
+const locationOptions = computed(() => [
+    { uid: '', name: '全部地点' },
+    ...locationList.value
+]);
+
+const technicianOptions = computed(() => [
+    { uid: '', nickname: '全部技师' },
+    ...technicianList.value
+]);
