@@ -257,6 +257,7 @@ const selectedAttendeeId = ref('self');
 const availableSlots = ref([]);
 const isQuerying = ref(false);
 const timesPopup = ref(null);
+const datePopup = ref(null);
 
 const currentTick = ref(Date.now());
 let countdownTimer = null;
