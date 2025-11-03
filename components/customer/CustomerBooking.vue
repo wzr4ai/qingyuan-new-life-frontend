@@ -183,7 +183,7 @@
     </uni-popup>
 
     <uni-popup ref="datePopup" type="bottom" background-color="#ffffff">
-        <view class="date-popup">
+        <scroll-view class="date-popup" scroll-y :scroll-top="datePopupScrollTop">
             <view class="popup-header">
                 <button class="back-btn" @click="closeDatePopup">
                     <uni-icons type="back" size="18" color="#666"></uni-icons>
@@ -220,7 +220,7 @@
             <view v-else class="times-empty">
                 <text>暂无可预约日期</text>
             </view>
-        </view>
+        </scroll-view>
     </uni-popup>
 </template>
 
@@ -266,6 +266,7 @@ const availableSlots = ref([]);
 const isQuerying = ref(false);
 const timesPopup = ref(null);
 const datePopup = ref(null);
+const datePopupScrollTop = ref(0);
 
 const currentTick = ref(Date.now());
 let countdownTimer = null;
@@ -589,6 +590,7 @@ const openDatePopup = () => {
         uni.showToast({ title: '暂无可选日期', icon: 'none' });
         return;
     }
+    datePopupScrollTop.value = 0;
     datePopup.value?.open();
 };
 
@@ -769,28 +771,6 @@ onBeforeUnmount(() => {
     width: 100%;
 }
 
-.date-chip {
-    width: 48px;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid #e5e5e5;
-    background-color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start;
-}
-
-.date-chip.active {
-    border-color: #409eff;
-    background-color: #ecf5ff;
-}
-
-.date-chip.disabled {
-    opacity: 0.4;
-    pointer-events: none;
-}
-
 .date-text {
     font-size: 15px;
     font-weight: 600;
@@ -944,6 +924,9 @@ onBeforeUnmount(() => {
 
 .date-popup {
     padding: 16px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .date-week-list {
@@ -954,6 +937,12 @@ onBeforeUnmount(() => {
 
 .date-week-group {
     margin-bottom: 12px;
+}
+
+.date-week-group + .date-week-group {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
 }
 
 .week-label {
