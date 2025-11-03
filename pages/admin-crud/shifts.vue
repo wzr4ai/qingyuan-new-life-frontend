@@ -162,11 +162,41 @@ const fetchDependencies = async () => {
     }
 };
 
+const locationOptions = computed(() => [
+    { uid: '', name: '全部地点' },
+    ...locationList.value.map((item) => ({
+        ...item,
+        name: item.name || '未命名地点'
+    }))
+]);
+
+const technicianOptions = computed(() => [
+    { uid: '', nickname: '全部技师' },
+    ...technicianList.value.map((item) => ({
+        ...item,
+        nickname: item.nickname || item.phone || '未命名技师'
+    }))
+]);
+
+const syncFilterDefaults = () => {
+    if (!locationOptions.value.length) {
+        filters.value.locationIndex = 0;
+    } else if (filters.value.locationIndex >= locationOptions.value.length) {
+        filters.value.locationIndex = 0;
+    }
+    if (!technicianOptions.value.length) {
+        filters.value.technicianIndex = 0;
+    } else if (filters.value.technicianIndex >= technicianOptions.value.length) {
+        filters.value.technicianIndex = 0;
+    }
+};
+
 const fetchShifts = async () => {
     try {
+        syncFilterDefaults();
         const params = {};
-        const locationOption = locationOptions.value[filters.value.locationIndex];
-        const technicianOption = technicianOptions.value[filters.value.technicianIndex];
+        const locationOption = locationOptions.value[filters.value.locationIndex] || locationOptions.value[0];
+        const technicianOption = technicianOptions.value[filters.value.technicianIndex] || technicianOptions.value[0];
         if (locationOption?.uid) {
             params.location_uid = locationOption.uid;
         }
@@ -189,16 +219,19 @@ const fetchShifts = async () => {
 
 onMounted(async () => {
     await fetchDependencies();
+    syncFilterDefaults();
     await fetchShifts();
 });
 
 const handleFilterLocationChange = async (event) => {
     filters.value.locationIndex = Number(event.detail.value);
+    syncFilterDefaults();
     await fetchShifts();
 };
 
 const handleFilterTechnicianChange = async (event) => {
     filters.value.technicianIndex = Number(event.detail.value);
+    syncFilterDefaults();
     await fetchShifts();
 };
 
@@ -363,7 +396,6 @@ const formatDateTime = (value) => {
     color: #888888;
     padding: 40px 20px;
 }
-
 .form-body {
     display: flex;
     flex-direction: column;
@@ -371,12 +403,3 @@ const formatDateTime = (value) => {
     padding: 10px;
 }
 </style>
-const locationOptions = computed(() => [
-    { uid: '', name: '全部地点' },
-    ...locationList.value
-]);
-
-const technicianOptions = computed(() => [
-    { uid: '', nickname: '全部技师' },
-    ...technicianList.value
-]);
