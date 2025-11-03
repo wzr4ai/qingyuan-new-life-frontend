@@ -1,115 +1,106 @@
 <template>
     <view class="admin-page-container">
         <view class="header">
-            <text class="title">排班管理</text>
-            <button class="primary-btn" @click="openCreatePopup" :disabled="!locationList.length || !technicianList.length">
-                <uni-icons type="plusempty" color="#fff" size="16"></uni-icons>
-                新建
-            </button>
+            <view>
+                <text class="title">排班管理</text>
+                <text class="subtitle">默认班次：上午 08:30-12:30，下午 14:00-18:00</text>
+            </view>
+            <view class="header-actions">
+                <picker
+                    mode="selector"
+                    :range="technicianList"
+                    range-key="nickname"
+                    @change="handleTechnicianChange"
+                    :value="technicianIndex"
+                >
+                    <view class="selector">
+                        {{ technicianList[technicianIndex]?.nickname || '请选择技师' }}
+                        <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                    </view>
+                </picker>
+            </view>
         </view>
 
-        <view class="filter-bar">
-            <picker
-                mode="selector"
-                :range="locationOptions"
-                range-key="name"
-                @change="handleFilterLocationChange"
-                :value="filters.locationIndex"
+        <view v-if="!technicianList.length" class="empty-state">
+            <text>暂无技师，请先在技师管理中维护数据。</text>
+        </view>
+
+        <view v-else class="calendar-container">
+            <view
+                v-for="day in calendar?.days || []"
+                :key="day.date"
+                class="calendar-card"
             >
-                <view class="selector">
-                    {{ locationOptions[filters.locationIndex]?.name || '全部地点' }}
-                    <uni-icons type="bottom" size="14" color="#666"></uni-icons>
+                <view class="card-header">
+                    <view>
+                        <text class="card-date">{{ formatDate(day.date) }}</text>
+                        <text class="card-weekday">{{ day.weekday }}</text>
+                    </view>
                 </view>
-            </picker>
-            <picker
-                mode="selector"
-                :range="technicianOptions"
-                range-key="nickname"
-                @change="handleFilterTechnicianChange"
-                :value="filters.technicianIndex"
-            >
-                <view class="selector">
-                    {{ technicianOptions[filters.technicianIndex]?.nickname || '全部技师' }}
-                    <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                </view>
-            </picker>
-            <view class="date-picker">
-                <text class="label">开始</text>
-                <uni-datetime-picker
-                    type="date"
-                    v-model="filters.startDate"
-                    :clear-icon="true"
-                    @change="fetchShifts"
-                ></uni-datetime-picker>
-            </view>
-            <view class="date-picker">
-                <text class="label">结束</text>
-                <uni-datetime-picker
-                    type="date"
-                    v-model="filters.endDate"
-                    :clear-icon="true"
-                    @change="fetchShifts"
-                ></uni-datetime-picker>
+
+                    <view
+                        v-for="periodKey in periodOrder"
+                        :key="periodKey"
+                        class="slot-row"
+                    >
+                        <view class="slot-info">
+                            <text class="slot-label">{{ periodLabels[periodKey] }}</text>
+                            <text class="slot-time">{{ periodTimes[periodKey] }}</text>
+                        </view>
+                        <view class="slot-content">
+                            <template v-if="day[periodKey]?.is_active">
+                                <view class="slot-details">
+                                    <text class="slot-location">
+                                        {{ day[periodKey].location_name || resolveLocationName(day[periodKey].location_uid) }}
+                                    </text>
+                                    <view class="slot-tags">
+                                        <text v-if="day[periodKey].locked_by_admin" class="tag tag-info">管理员锁定</text>
+                                    </view>
+                                </view>
+                                <button class="danger-btn" size="mini" @click="confirmCancel(day[periodKey])">
+                                    删除
+                                </button>
+                            </template>
+                            <template v-else>
+                                <view class="slot-empty">
+                                    <text class="slot-empty-text">未排班</text>
+                                    <button class="primary-outline-btn" size="mini" @click="openAssignPopup(day, periodKey)">
+                                        安排
+                                    </button>
+                                </view>
+                            </template>
+                        </view>
+                    </view>
             </view>
         </view>
 
-        <view v-for="item in shiftList" :key="item.uid" class="shift-card">
-            <view class="shift-header">
-                <view>
-                    <text class="shift-title">{{ item.technician?.nickname || item.technician?.phone || '未知技师' }}</text>
-                    <text class="shift-location">{{ item.location?.name || '-' }}</text>
-                </view>
-                <button class="danger-btn" @click="confirmDeleteShift(item)">删除</button>
-            </view>
-            <text class="shift-time">{{ formatDateTime(item.start_time) }} - {{ formatDateTime(item.end_time) }}</text>
-        </view>
-
-        <view v-if="!shiftList.length" class="empty-state">
-            <text>暂无排班记录，可通过“新建”快速安排。</text>
-        </view>
-
-        <uni-popup ref="createPopup" type="dialog">
+        <uni-popup ref="assignPopup" type="dialog">
             <uni-popup-dialog
                 mode="input"
-                title="新建排班"
+                title="安排班次"
                 confirmText="提交"
-                @confirm="handleCreate"
+                @confirm="handleAssignConfirm"
                 :before-close="true"
-                @close="createPopup.close()"
+                @close="closeAssignPopup"
             >
                 <view class="form-body">
+                    <text class="form-tip">请选择该班次的工作地点：</text>
                     <picker
                         mode="selector"
-                        :range="technicianList"
-                        range-key="nickname"
-                        @change="handleCreateTechnicianChange"
-                        :value="createForm.technicianIndex"
-                    >
-                        <view class="selector selector-inline">
-                            {{ technicianList[createForm.technicianIndex]?.nickname || '请选择技师' }}
-                            <uni-icons type="bottom" size="14" color="#666"></uni-icons>
-                        </view>
-                    </picker>
-                    <picker
-                        mode="selector"
-                        :range="locationList"
+                        :range="locationOptions"
                         range-key="name"
-                        @change="handleCreateLocationChange"
-                        :value="createForm.locationIndex"
+                        @change="handleAssignLocationChange"
+                        :value="assignState.locationIndex"
                     >
                         <view class="selector selector-inline">
-                            {{ locationList[createForm.locationIndex]?.name || '请选择地点' }}
+                            {{ locationOptions[assignState.locationIndex]?.name || '请选择地点' }}
                             <uni-icons type="bottom" size="14" color="#666"></uni-icons>
                         </view>
                     </picker>
-                    <uni-datetime-picker
-                        type="datetime"
-                        v-model="createForm.startTime"
-                    ></uni-datetime-picker>
-                    <uni-datetime-picker
-                        type="datetime"
-                        v-model="createForm.endTime"
-                    ></uni-datetime-picker>
+                    <view class="readonly-row">
+                        <text>日期：{{ formatDate(assignState.day?.date) }}</text>
+                        <text>班次：{{ periodLabels[assignState.period] }}（{{ periodTimes[assignState.period] }}）</text>
+                    </view>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -119,31 +110,43 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import {
-    getShifts,
-    getLocations,
     getTechnicians,
+    getLocations,
     createShift,
-    deleteShift
+    cancelShift,
+    getTechnicianShiftCalendar
 } from '@/api/admin.js';
 
-const shiftList = ref([]);
-const locationList = ref([]);
+const periodOrder = ['morning', 'afternoon'];
+const periodLabels = {
+    morning: '上午班',
+    afternoon: '下午班'
+};
+const periodTimes = {
+    morning: '08:30-12:30',
+    afternoon: '14:00-18:00'
+};
+
 const technicianList = ref([]);
+const locationList = ref([]);
+const calendar = ref(null);
+const technicianIndex = ref(0);
 
-const filters = ref({
-    locationIndex: 0,
-    technicianIndex: 0,
-    startDate: '',
-    endDate: ''
+const assignPopup = ref(null);
+const assignState = ref({
+    day: null,
+    period: 'morning',
+    locationIndex: 0
 });
 
-const createPopup = ref(null);
-const createForm = ref({
-    technicianIndex: 0,
-    locationIndex: 0,
-    startTime: '',
-    endTime: ''
-});
+const locationOptions = computed(() =>
+    locationList.value.map((item) => ({
+        uid: item.uid,
+        name: item.name || '未命名地点'
+    }))
+);
+
+const selectedTechnician = computed(() => technicianList.value[technicianIndex.value] || null);
 
 const fetchDependencies = async () => {
     try {
@@ -151,8 +154,8 @@ const fetchDependencies = async () => {
             getLocations(),
             getTechnicians()
         ]);
-        locationList.value = locations;
-        technicianList.value = technicians.map((item) => ({
+        locationList.value = locations || [];
+        technicianList.value = (technicians || []).map((item) => ({
             ...item,
             nickname: item.nickname || item.phone || '未命名技师'
         }));
@@ -162,55 +165,14 @@ const fetchDependencies = async () => {
     }
 };
 
-const locationOptions = computed(() => [
-    { uid: '', name: '全部地点' },
-    ...locationList.value.map((item) => ({
-        ...item,
-        name: item.name || '未命名地点'
-    }))
-]);
-
-const technicianOptions = computed(() => [
-    { uid: '', nickname: '全部技师' },
-    ...technicianList.value.map((item) => ({
-        ...item,
-        nickname: item.nickname || item.phone || '未命名技师'
-    }))
-]);
-
-const syncFilterDefaults = () => {
-    if (!locationOptions.value.length) {
-        filters.value.locationIndex = 0;
-    } else if (filters.value.locationIndex >= locationOptions.value.length) {
-        filters.value.locationIndex = 0;
+const fetchCalendar = async () => {
+    if (!selectedTechnician.value) {
+        calendar.value = null;
+        return;
     }
-    if (!technicianOptions.value.length) {
-        filters.value.technicianIndex = 0;
-    } else if (filters.value.technicianIndex >= technicianOptions.value.length) {
-        filters.value.technicianIndex = 0;
-    }
-};
-
-const fetchShifts = async () => {
     try {
-        syncFilterDefaults();
-        const params = {};
-        const locationOption = locationOptions.value[filters.value.locationIndex] || locationOptions.value[0];
-        const technicianOption = technicianOptions.value[filters.value.technicianIndex] || technicianOptions.value[0];
-        if (locationOption?.uid) {
-            params.location_uid = locationOption.uid;
-        }
-        if (technicianOption?.uid) {
-            params.technician_uid = technicianOption.uid;
-        }
-        if (filters.value.startDate) {
-            params.start_date = filters.value.startDate;
-        }
-        if (filters.value.endDate) {
-            params.end_date = filters.value.endDate;
-        }
-        const data = await getShifts(params);
-        shiftList.value = data;
+        const data = await getTechnicianShiftCalendar(selectedTechnician.value.uid, { days: 14 });
+        calendar.value = data;
     } catch (error) {
         console.error('加载排班失败:', error);
         uni.showToast({ title: '加载排班失败', icon: 'error' });
@@ -219,87 +181,75 @@ const fetchShifts = async () => {
 
 onMounted(async () => {
     await fetchDependencies();
-    syncFilterDefaults();
-    await fetchShifts();
+    await fetchCalendar();
 });
 
-const handleFilterLocationChange = async (event) => {
-    filters.value.locationIndex = Number(event.detail.value);
-    syncFilterDefaults();
-    await fetchShifts();
+const handleTechnicianChange = async (event) => {
+    technicianIndex.value = Number(event.detail.value);
+    await fetchCalendar();
 };
 
-const handleFilterTechnicianChange = async (event) => {
-    filters.value.technicianIndex = Number(event.detail.value);
-    syncFilterDefaults();
-    await fetchShifts();
-};
-
-const openCreatePopup = () => {
-    if (!locationList.value.length || !technicianList.value.length) {
-        uni.showToast({ title: '请先维护地点和技师', icon: 'none' });
+const openAssignPopup = (day, period) => {
+    if (!locationOptions.value.length) {
+        uni.showToast({ title: '请先维护地点', icon: 'none' });
         return;
     }
-    createForm.value = {
-        technicianIndex: 0,
-        locationIndex: 0,
-        startTime: '',
-        endTime: ''
+    assignState.value = {
+        day,
+        period,
+        locationIndex: 0
     };
-    createPopup.value.open();
+    assignPopup.value?.open();
 };
 
-const handleCreateTechnicianChange = (event) => {
-    createForm.value.technicianIndex = Number(event.detail.value);
+const handleAssignLocationChange = (event) => {
+    assignState.value.locationIndex = Number(event.detail.value);
 };
 
-const handleCreateLocationChange = (event) => {
-    createForm.value.locationIndex = Number(event.detail.value);
-};
-
-const handleCreate = async () => {
-    const technician = technicianList.value[createForm.value.technicianIndex];
-    const location = locationList.value[createForm.value.locationIndex];
-    if (!technician || !location) {
-        uni.showToast({ title: '请选择技师和地点', icon: 'none' });
-        return;
-    }
-    if (!createForm.value.startTime || !createForm.value.endTime) {
-        uni.showToast({ title: '请选择开始与结束时间', icon: 'none' });
-        return;
-    }
-    if (new Date(createForm.value.startTime) >= new Date(createForm.value.endTime)) {
-        uni.showToast({ title: '结束时间必须晚于开始时间', icon: 'none' });
+const handleAssignConfirm = async () => {
+    const day = assignState.value.day;
+    const period = assignState.value.period;
+    const location = locationOptions.value[assignState.value.locationIndex];
+    const technician = selectedTechnician.value;
+    if (!day || !period || !location || !technician) {
+        uni.showToast({ title: '信息不完整', icon: 'none' });
         return;
     }
     try {
         await createShift({
             technician_uid: technician.uid,
             location_uid: location.uid,
-            start_time: createForm.value.startTime,
-            end_time: createForm.value.endTime
+            date: day.date,
+            period
         });
-        uni.showToast({ title: '创建成功', icon: 'success' });
-        createPopup.value.close();
-        await fetchShifts();
+        uni.showToast({ title: '安排成功', icon: 'success' });
+        closeAssignPopup();
+        await fetchCalendar();
     } catch (error) {
-        console.error('创建排班失败:', error);
+        console.error('安排排班失败:', error);
         uni.showToast({ title: error.data?.detail || '操作失败', icon: 'error' });
     }
 };
 
-const confirmDeleteShift = (shift) => {
+const closeAssignPopup = () => {
+    assignPopup.value?.close();
+};
+
+const confirmCancel = (slot) => {
+    if (!slot?.shift_uid) {
+        return;
+    }
     uni.showModal({
         title: '确认删除',
-        content: `确定删除 ${formatDateTime(shift.start_time)} 的排班吗？`,
+        content: '确定取消该班次吗？已存在的预约需要另行处理。',
         success: async (res) => {
             if (res.confirm) {
                 try {
-                    await deleteShift(shift.uid);
-                    uni.showToast({ title: '删除成功', icon: 'success' });
-                    await fetchShifts();
+                    await cancelShift(slot.shift_uid);
+                    uni.showToast({ title: '取消成功', icon: 'success' });
+                    await fetchCalendar();
                 } catch (error) {
-                    console.error('删除排班失败:', error);
+                    console.error('取消排班失败:', error);
                     uni.showToast({ title: error.data?.detail || '操作失败', icon: 'error' });
                 }
             }
@@ -307,28 +257,49 @@ const confirmDeleteShift = (shift) => {
     });
 };
 
-const formatDateTime = (value) => {
-    const date = new Date(value);
+const resolveLocationName = (uid) => {
+    const found = locationOptions.value.find((item) => item.uid === uid);
+    return found?.name || '未命名地点';
+};
+
+const formatDate = (value) => {
+    if (!value) {
+        return '-';
+    }
+    const date = new Date(`${value}T00:00:00`);
     if (Number.isNaN(date.getTime())) {
         return value;
     }
     const pad = (num) => String(num).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 </script>
 
 <style scoped>
 @import '/static/css/admin.css';
 
-.filter-bar {
+.header {
     display: flex;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
     gap: 12px;
-    margin-bottom: 20px;
+}
+
+.subtitle {
+    display: block;
+    font-size: 12px;
+    color: #888888;
+    margin-top: 4px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
 
 .selector {
-    min-width: 140px;
+    min-width: 160px;
     padding: 8px 12px;
     border: 1px solid #dddddd;
     border-radius: 6px;
@@ -338,49 +309,116 @@ const formatDateTime = (value) => {
     background-color: #ffffff;
 }
 
-.selector-inline {
-    margin-top: 10px;
-}
-
-.date-picker {
+.calendar-container {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
 }
 
-.label {
-    font-size: 14px;
-    color: #666666;
-}
-
-.shift-card {
+.calendar-card {
     background-color: #ffffff;
     border-radius: 8px;
     padding: 16px;
-    margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.shift-header {
+.card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 12px;
 }
 
-.shift-title {
+.card-date {
     font-size: 18px;
     font-weight: 600;
 }
 
-.shift-location {
+.card-weekday {
     font-size: 14px;
+    color: #888888;
+    margin-left: 8px;
+}
+
+.slot-row {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid #f0f0f0;
+    padding: 14px 0;
+    gap: 16px;
+}
+
+.slot-row:first-of-type {
+    border-top: none;
+}
+
+.slot-info {
+    min-width: 120px;
+}
+
+.slot-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.slot-time {
+    font-size: 12px;
     color: #888888;
 }
 
-.shift-time {
-    display: block;
-    margin-top: 8px;
-    color: #555555;
+.slot-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.slot-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.slot-location {
+    font-size: 15px;
+}
+
+.slot-tags {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tag {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.tag-info {
+    background-color: #ecf5ff;
+    color: #409eff;
+}
+
+.slot-empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slot-empty-text {
+    color: #999999;
+}
+
+.primary-outline-btn {
+    border: 1px solid #409eff;
+    color: #409eff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background-color: #ffffff;
 }
 
 .danger-btn {
@@ -391,15 +429,27 @@ const formatDateTime = (value) => {
     background-color: #ffffff;
 }
 
-.empty-state {
-    text-align: center;
-    color: #888888;
-    padding: 40px 20px;
-}
 .form-body {
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 10px;
+}
+
+.form-tip {
+    font-size: 14px;
+    color: #666666;
+}
+
+.selector-inline {
+    margin-top: 4px;
+}
+
+.readonly-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    color: #555555;
 }
 </style>

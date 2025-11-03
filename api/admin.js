@@ -106,9 +106,16 @@ export const getShifts = (params) => {
     });
 };
 export const createShift = (data) => {
-    // data is { technician_uid, location_uid, start_time, end_time }
+    // data is { technician_uid, location_uid, date, period }
     return request({ url: '/admin/shifts', method: 'POST', data });
 };
-export const deleteShift = (uid) => {
-    return request({ url: `/admin/shifts/${uid}`, method: 'DELETE' });
+export const cancelShift = (uid) => {
+    return request({ url: `/admin/shifts/${uid}/cancel`, method: 'PATCH' });
+};
+export const deleteShift = (uid) => cancelShift(uid);
+export const getTechnicianShiftCalendar = (technicianUid, params) => {
+    return request({
+        url: `/admin/technicians/${technicianUid}/shift-calendar`,
+        data: params
+    });
 };
