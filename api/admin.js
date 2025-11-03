@@ -113,6 +113,14 @@ export const cancelShift = (uid) => {
     return request({ url: `/admin/shifts/${uid}/cancel`, method: 'PATCH' });
 };
 export const deleteShift = (uid) => cancelShift(uid);
+export const bulkCreateShifts = (technicianUid, data, options = {}) => {
+    const query = options.days ? `?days=${options.days}` : '';
+    return request({
+        url: `/admin/technicians/${technicianUid}/shifts/bulk${query}`,
+        method: 'POST',
+        data
+    });
+};
 export const getTechnicianShiftCalendar = (technicianUid, params) => {
     return request({
         url: `/admin/technicians/${technicianUid}/shift-calendar`,
