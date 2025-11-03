@@ -1,21 +1,46 @@
 <template>
     <view class="admin-page-container">
         <view class="header">
-            <text class="title">管理仪表盘</text>
+            <view>
+                <text class="title">管理仪表盘</text>
+                <text class="subtitle">排班是核心，基础数据随时了解</text>
+            </view>
             <button class="primary-btn" @click="refreshData" :disabled="isLoading">
                 <uni-icons type="refresh" color="#fff" size="18"></uni-icons>
                 刷新数据
             </button>
         </view>
 
-        <view class="metric-grid">
-            <view
-                v-for="item in metricItems"
-                :key="item.key"
-                class="metric-card"
-            >
-                <text class="metric-label">{{ item.label }}</text>
-                <text class="metric-value">{{ item.value }}</text>
+        <view class="section-card highlight-card">
+            <view class="section-header">
+                <text class="section-title">未来 7 天排班概览</text>
+                <text class="section-subtitle">共 {{ metrics.shifts }} 个班次</text>
+            </view>
+            <view class="shift-summary-grid">
+                <view
+                    v-for="item in shiftSummary"
+                    :key="item.date"
+                    class="shift-summary-item"
+                    :class="{ 'is-empty': item.total === 0 }"
+                >
+                    <view class="shift-summary-date">
+                        <text class="date-text">{{ item.date }}</text>
+                        <text class="weekday-text">{{ item.weekday }}</text>
+                    </view>
+                    <view class="shift-summary-count">
+                        <view class="count-line">
+                            <text class="count-label">上午</text>
+                            <text class="count-value">{{ item.morning }}</text>
+                        </view>
+                        <view class="count-line">
+                            <text class="count-label">下午</text>
+                            <text class="count-value">{{ item.afternoon }}</text>
+                        </view>
+                    </view>
+                    <view class="tech-count">
+                        <text>出勤技师 {{ item.techCount }}</text>
+                    </view>
+                </view>
             </view>
         </view>
 
@@ -37,11 +62,25 @@
                 </uni-list-item>
             </uni-list>
         </view>
+
+        <view class="section-card muted-card">
+            <text class="section-title small">基础数据概览</text>
+            <view class="metric-chip-grid">
+                <view
+                    v-for="item in baseMetricItems"
+                    :key="item.key"
+                    class="metric-chip"
+                >
+                    <text class="chip-label">{{ item.label }}</text>
+                    <text class="chip-value">{{ item.value }}</text>
+                </view>
+            </view>
+        </view>
     </view>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, reactive } from 'vue';
 import {
     getLocations,
     getServices,
@@ -51,7 +90,7 @@ import {
 } from '@/api/admin.js';
 
 const isLoading = ref(false);
-const metrics = ref({
+const metrics = reactive({
     locations: 0,
     services: 0,
     technicians: 0,
@@ -59,13 +98,13 @@ const metrics = ref({
     shifts: 0
 });
 const upcomingShifts = ref([]);
+const shiftSummary = ref([]);
 
-const metricItems = computed(() => [
-    { key: 'locations', label: '地点数量', value: metrics.value.locations },
-    { key: 'services', label: '服务项目', value: metrics.value.services },
-    { key: 'technicians', label: '技师数量', value: metrics.value.technicians },
-    { key: 'resources', label: '资源数量', value: metrics.value.resources },
-    { key: 'shifts', label: '未来排班', value: metrics.value.shifts }
+const baseMetricItems = computed(() => [
+    { key: 'locations', label: '地点数量', value: metrics.locations },
+    { key: 'services', label: '服务项目', value: metrics.services },
+    { key: 'technicians', label: '技师数量', value: metrics.technicians },
+    { key: 'resources', label: '资源数量', value: metrics.resources }
 ]);
 
 const formatDate = (dateInput) => {
@@ -89,6 +128,76 @@ const formatShiftNote = (shift) => {
     return `${formatDate(start)} ${formatTime(start)} - ${formatTime(end)}`;
 };
 
+const SHIFT_SUMMARY_DAYS = 7;
+const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const inferPeriod = (shift, start) => {
+    if (shift.period) {
+        return shift.period;
+    }
+    const hour = start.getHours();
+    return hour < 13 ? 'morning' : 'afternoon';
+};
+
+const calculateShiftSummary = (shifts) => {
+    const buckets = new Map();
+    shifts.forEach((shift) => {
+        const start = new Date(shift.start_time);
+        const key = formatDate(start);
+        if (!buckets.has(key)) {
+            buckets.set(key, {
+                date: key,
+                weekday: WEEKDAY_LABELS[start.getDay()],
+                morning: 0,
+                afternoon: 0,
+                techIds: new Set(),
+                total: 0
+            });
+        }
+        const bucket = buckets.get(key);
+        const period = inferPeriod(shift, start);
+        if (period === 'morning') {
+            bucket.morning += 1;
+        } else if (period === 'afternoon') {
+            bucket.afternoon += 1;
+        }
+        const techUid = shift.technician?.uid || shift.technician_uid || shift.technician_id || '';
+        if (techUid) {
+            bucket.techIds.add(techUid);
+        }
+        bucket.total += 1;
+    });
+
+    const summary = [];
+    const today = new Date();
+    for (let i = 0; i < SHIFT_SUMMARY_DAYS; i += 1) {
+        const current = new Date(today);
+        current.setDate(today.getDate() + i);
+        const key = formatDate(current);
+        if (buckets.has(key)) {
+            const bucket = buckets.get(key);
+            summary.push({
+                date: key,
+                weekday: bucket.weekday,
+                morning: bucket.morning,
+                afternoon: bucket.afternoon,
+                techCount: bucket.techIds.size,
+                total: bucket.total
+            });
+        } else {
+            summary.push({
+                date: key,
+                weekday: WEEKDAY_LABELS[current.getDay()],
+                morning: 0,
+                afternoon: 0,
+                techCount: 0,
+                total: 0
+            });
+        }
+    }
+    shiftSummary.value = summary;
+};
+
 const refreshData = async () => {
     if (isLoading.value) {
         return;
@@ -101,9 +210,9 @@ const refreshData = async () => {
             getServices(),
             getTechnicians()
         ]);
-        metrics.value.locations = locations.length;
-        metrics.value.services = services.length;
-        metrics.value.technicians = technicians.length;
+        metrics.locations = locations.length;
+        metrics.services = services.length;
+        metrics.technicians = technicians.length;
         console.debug('[AdminDashboard] Base counts loaded.', {
             locations: locations.length,
             services: services.length,
@@ -119,13 +228,14 @@ const refreshData = async () => {
                 console.error('获取资源失败:', resourceError);
             }
         }
-        metrics.value.resources = resourcesCount;
+        metrics.resources = resourcesCount;
         console.debug('[AdminDashboard] Resource count aggregated.', { resources: resourcesCount });
 
         const today = formatDate(new Date());
         const shifts = await getShifts({ start_date: today });
-        metrics.value.shifts = shifts.length;
+        metrics.shifts = shifts.length;
         upcomingShifts.value = shifts.slice(0, 5);
+        calculateShiftSummary(shifts);
         console.debug('[AdminDashboard] Upcoming shifts loaded.', {
             totalShifts: shifts.length,
             preview: upcomingShifts.value
@@ -136,7 +246,7 @@ const refreshData = async () => {
     } finally {
         isLoading.value = false;
         console.debug('[AdminDashboard] Refresh complete.', {
-            metrics: { ...metrics.value },
+            metrics: { ...metrics },
             upcomingShifts: upcomingShifts.value
         });
     }
@@ -151,32 +261,114 @@ onMounted(() => {
 <style scoped>
 @import '/static/css/admin.css';
 
-.metric-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.subtitle {
+    display: block;
+    font-size: 13px;
+    color: #8f9399;
+    margin-top: 4px;
+}
+
+.highlight-card {
     margin-bottom: 20px;
 }
 
-.metric-card {
-    background-color: #ffffff;
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.section-title.small {
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.section-subtitle {
+    font-size: 14px;
+    color: #909399;
+}
+
+.shift-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.shift-summary-item {
+    border: 1px solid #e5e5e5;
     border-radius: 10px;
-    padding: 16px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.metric-label {
-    color: #666666;
-    font-size: 14px;
+.shift-summary-item.is-empty {
+    background-color: #f9fbff;
+    border-color: #d6e4ff;
 }
 
-.metric-value {
-    font-size: 28px;
-    font-weight: bold;
-    color: #222222;
+.shift-summary-date {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.date-text {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.weekday-text {
+    font-size: 12px;
+    color: #909399;
+}
+
+.shift-summary-count {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.count-line {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+    border-radius: 6px;
+    background-color: #f6f7fb;
+}
+
+.count-label {
+    font-size: 12px;
+    color: #888888;
+}
+
+.count-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+    margin-top: 4px;
+}
+
+.tech-count {
+    font-size: 12px;
+    color: #606266;
 }
 
 .section-card {
@@ -184,18 +376,43 @@ onMounted(() => {
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-
-.section-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    display: block;
+    margin-bottom: 20px;
 }
 
 .empty-state {
     text-align: center;
     color: #888888;
     padding: 30px 0;
+}
+
+.metric-chip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.metric-chip {
+    border: 1px dashed #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background-color: #fafafa;
+}
+
+.chip-label {
+    font-size: 12px;
+    color: #909399;
+}
+
+.chip-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #303133;
+}
+
+.muted-card {
+    margin-top: 8px;
 }
 </style>

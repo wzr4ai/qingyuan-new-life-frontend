@@ -89,14 +89,6 @@
 				"navigationBarTitleText": "技师管理"
 			}
 		},
-        { 
-			// 这个页面可能用于查看/编辑单个排班，
-            // 与 pages/admin/scheduling (列表/日历视图) 不同
-			"path": "pages/admin-crud/shifts",
-			"style": {
-				"navigationBarTitleText": "排班详情" 
-			}
-		},
 
 		// --- 5. TabBar 占位页面 ---
 		{
