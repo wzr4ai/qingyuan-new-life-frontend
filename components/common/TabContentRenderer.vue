@@ -41,26 +41,73 @@ const registry = [
 ];
 
 const getComponentName = (component) => component?.name || component?.__name || 'anonymous';
+const getComponentFile = (component) => component?.__file || '';
+
+const collectIdentifiers = (component) => {
+    const identifiers = new Set();
+    if (!component) {
+        return identifiers;
+    }
+    identifiers.add(component);
+    const name = getComponentName(component);
+    if (name) {
+        identifiers.add(name);
+        identifiers.add(name.toLowerCase());
+    }
+    const file = getComponentFile(component);
+    if (file) {
+        identifiers.add(file);
+    }
+    return identifiers;
+};
+
+const registryEntries = registry.map((entry) => ({
+    ...entry,
+    identifiers: collectIdentifiers(entry.component)
+}));
 
 const resolvedKey = computed(() => {
     if (!props.component) {
         console.warn('[TabContentRenderer] Missing component prop, defaulting to ComingSoon.');
         return 'coming-soon';
     }
-    const match = registry.find((item) => item.component === props.component);
+
+    const candidateIdentifiers = collectIdentifiers(props.component);
+    const match = registryEntries.find((entry) => {
+        for (const identifier of candidateIdentifiers) {
+            if (entry.identifiers.has(identifier)) {
+                return true;
+            }
+        }
+        return false;
+    });
+
     if (!match) {
         console.warn('[TabContentRenderer] Unregistered component received, defaulting to ComingSoon.', {
-            name: getComponentName(props.component)
+            name: getComponentName(props.component),
+            file: getComponentFile(props.component),
+            identifiers: Array.from(candidateIdentifiers)
+        });
+        uni.showToast({
+            title: '视图未注册',
+            icon: 'none'
         });
         return 'coming-soon';
     }
     return match.key;
 });
 
-watch(() => props.component, (next) => {
-    console.debug('[TabContentRenderer] Component switch', {
-        requested: getComponentName(next),
-        resolvedKey: resolvedKey.value
-    });
-}, { immediate: true });
+watch(
+    () => props.component,
+    (next) => {
+        console.debug('[TabContentRenderer] Component switch', {
+            requested: {
+                name: getComponentName(next),
+                file: getComponentFile(next)
+            },
+            resolvedKey: resolvedKey.value
+        });
+    },
+    { immediate: true }
+);
 </script>
