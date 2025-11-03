@@ -56,6 +56,12 @@
 				"navigationBarTitleText": "排班管理"
 			}
 		},
+		{
+			"path": "pages/admin/quick-scheduling",
+			"style": {
+				"navigationBarTitleText": "快速排班"
+			}
+		},
 
 		// --- 4. 管理员 CRUD 子页面 ---
 		// (必须注册才能被 uni.navigateTo 导航)

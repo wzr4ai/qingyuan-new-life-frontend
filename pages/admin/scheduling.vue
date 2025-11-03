@@ -1,7 +1,7 @@
 <template>
-    <AdminScheduling />
+    <ScheduleBoard />
 </template>
 
 <script setup>
-import AdminScheduling from '@/components/admin/AdminScheduling.vue';
+import ScheduleBoard from '@/components/schedule/ScheduleBoard.vue';
 </script>
