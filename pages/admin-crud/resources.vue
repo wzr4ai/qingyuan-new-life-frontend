@@ -26,7 +26,7 @@
                 v-for="item in resourceList"
                 :key="item.uid"
                 :title="item.name"
-                :note="`地点：${item.location?.name || '-'}`"
+                :note="formatResourceNote(item)"
                 showArrow
                 clickable
                 @click="openEditForm(item)"
@@ -73,6 +73,20 @@
                             <uni-icons type="bottom" size="14" color="#666"></uni-icons>
                         </view>
                     </picker>
+                    <view class="input-group">
+                        <text class="input-label">可提供服务</text>
+                        <text class="input-hint" v-if="serviceOptions.length">选择该资源可支持的服务项目</text>
+                        <view v-if="serviceOptions.length">
+                            <uni-data-checkbox
+                                multiple
+                                :localdata="serviceOptions"
+                                v-model="formData.service_uids"
+                            />
+                        </view>
+                        <view v-else class="empty-hint">
+                            暂无可选服务，请先前往服务管理创建。
+                        </view>
+                    </view>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -86,13 +100,15 @@ import {
     getResourcesByLocation,
     createResource,
     updateResource,
-    deleteResource
+    deleteResource,
+    getServices
 } from '@/api/admin.js';
 
 const locationList = ref([]);
 const resourceList = ref([]);
 const selectedLocationIndex = ref(0);
 const formLocationIndex = ref(0);
+const serviceList = ref([]);
 
 const formPopup = ref(null);
 const formTitle = ref('新建资源');
@@ -103,7 +119,8 @@ const formData = ref({
     uid: null,
     name: '',
     location_uid: '',
-    type: 'room'
+    type: 'room',
+    service_uids: []
 });
 
 const currentLocationName = computed(() => {
@@ -112,6 +129,21 @@ const currentLocationName = computed(() => {
     }
     return locationList.value[selectedLocationIndex.value]?.name || '请选择地点';
 });
+
+const serviceOptions = computed(() => serviceList.value.map((service) => ({
+    text: service.name,
+    value: service.uid
+})));
+
+const fetchServices = async () => {
+    try {
+        const services = await getServices();
+        serviceList.value = services;
+    } catch (error) {
+        console.error('加载服务失败:', error);
+        uni.showToast({ title: '加载服务失败', icon: 'error' });
+    }
+};
 
 const fetchLocations = async () => {
     try {
@@ -144,7 +176,15 @@ const fetchResources = async () => {
     }
 };
 
-onMounted(fetchLocations);
+const formatResourceNote = (item) => {
+    const locationName = item.location?.name || '-';
+    const serviceNames = (item.services || []).map((service) => service.name).join('、') || '未设置服务';
+    return `地点：${locationName} · 服务：${serviceNames}`;
+};
+
+onMounted(async () => {
+    await Promise.all([fetchServices(), fetchLocations()]);
+});
 
 const handleLocationChange = async (event) => {
     selectedLocationIndex.value = Number(event.detail.value);
@@ -156,6 +196,9 @@ const handleFormLocationChange = (event) => {
 };
 
 const openCreateForm = () => {
+    if (!serviceList.value.length) {
+        fetchServices();
+    }
     formTitle.value = '新建资源';
     isEditMode.value = false;
     formLocationIndex.value = selectedLocationIndex.value;
@@ -163,12 +206,16 @@ const openCreateForm = () => {
         uid: null,
         name: '',
         location_uid: locationList.value[formLocationIndex.value]?.uid || '',
-        type: 'room'
+        type: 'room',
+        service_uids: []
     };
     formPopup.value.open();
 };
 
 const openEditForm = (item) => {
+    if (!serviceList.value.length) {
+        fetchServices();
+    }
     formTitle.value = `编辑：${item.name}`;
     isEditMode.value = true;
     const index = locationList.value.findIndex((loc) => loc.uid === item.location?.uid);
@@ -177,7 +224,8 @@ const openEditForm = (item) => {
         uid: item.uid,
         name: item.name,
         location_uid: item.location?.uid || '',
-        type: item.type || 'room'
+        type: item.type || 'room',
+        service_uids: (item.services || []).map((service) => service.uid)
     };
     formPopup.value.open();
 };
@@ -224,6 +272,10 @@ const handleSubmit = async () => {
         uni.showToast({ title: '请选择地点', icon: 'none' });
         return;
     }
+    if (!formData.value.service_uids.length) {
+        uni.showToast({ title: '请选择可提供的服务', icon: 'none' });
+        return;
+    }
     if (isSubmitting.value) {
         return;
     }
@@ -232,7 +284,8 @@ const handleSubmit = async () => {
         const payload = {
             name: formData.value.name,
             location_uid: location.uid,
-            type: formData.value.type || 'room'
+            type: formData.value.type || 'room',
+            service_uids: [...formData.value.service_uids]
         };
         if (isEditMode.value && formData.value.uid) {
             await updateResource(formData.value.uid, payload);
@@ -298,6 +351,28 @@ const handleSubmit = async () => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.input-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+}
+.input-hint {
+    font-size: 12px;
+    color: #888888;
+}
+.empty-hint {
+    font-size: 12px;
+    color: #888888;
+    background-color: #fafafa;
+    border: 1px dashed #dddddd;
+    border-radius: 6px;
+    padding: 8px 12px;
 }
 .list-delete-btn {
     padding: 4px 10px;
