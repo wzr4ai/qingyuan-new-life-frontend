@@ -1,8 +1,17 @@
 <template>
+    <view class="tab-wrapper">
+        <component v-if="currentComponent" :is="currentComponent" />
+    </view>
 </template>
 
-<script>
+<script setup>
+import { useTabContent } from '@/composables/useTabContent.js';
+
+const { currentComponent } = useTabContent(1);
 </script>
 
-<style>
+<style scoped>
+.tab-wrapper {
+    min-height: 100vh;
+}
 </style>

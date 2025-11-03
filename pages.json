@@ -120,33 +120,33 @@
 		"borderStyle": "black",
 		"backgroundColor": "#ffffff",
 		"list": [
-			{
-				"pagePath": "pages/index/index", // 初始指向客户首页
-				"text": "占位1" // 会被 userStore 覆盖
-				// 您需要添加 iconPath 和 selectedIconPath
-				// "iconPath": "static/tab_icons/...", 
-				// "selectedIconPath": "static/tab_icons/..."
-			},
-			{
-				"pagePath": "pages/appointment/list", // 初始指向客户预约
-				"text": "占位2"
-				// "iconPath": "static/tab_icons/...",
-				// "selectedIconPath": "static/tab_icons/..."
-			},
-			{
-				"pagePath": "pages/profile/index", // 初始指向通用个人中心
-				"text": "占位3"
-				// "iconPath": "static/tab_icons/...",
-				// "selectedIconPath": "static/tab_icons/..."
-			},
-			{
-				// 第四个 Tab 占位符, 必须存在
-				"pagePath": "pages/placeholder/index", // 指向专用占位页面，避免重复
-				"text": "占位4"
-				// "iconPath": "static/tab_icons/...",
-				// "selectedIconPath": "static/tab_icons/..."
-			}
-		]
+				{
+					"pagePath": "pages/index/index", // 初始指向客户首页
+					"text": "预约" // 会被 userStore 覆盖
+					// 您需要添加 iconPath 和 selectedIconPath
+					// "iconPath": "static/tab_icons/...", 
+					// "selectedIconPath": "static/tab_icons/..."
+				},
+				{
+					"pagePath": "pages/appointment/list", // 初始指向客户预约
+					"text": "我的预约"
+					// "iconPath": "static/tab_icons/...",
+					// "selectedIconPath": "static/tab_icons/..."
+				},
+				{
+					"pagePath": "pages/profile/index", // 初始指向通用个人中心
+					"text": "个人中心"
+					// "iconPath": "static/tab_icons/...",
+					// "selectedIconPath": "static/tab_icons/..."
+				},
+				{
+					// 第四个 Tab 占位符, 必须存在
+					"pagePath": "pages/placeholder/index", // 指向专用占位页面，避免重复
+					"text": "敬请期待"
+					// "iconPath": "static/tab_icons/...",
+					// "selectedIconPath": "static/tab_icons/..."
+				}
+			]
 	},
 
 	// --- easycom (如果安装了 uni-ui, 会自动生成或需要手动添加) ---

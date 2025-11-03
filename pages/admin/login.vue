@@ -49,16 +49,18 @@ const handleLogin = async () => {
 		if (data && data.access_token) {
 			// 5. 登录成功, 存储 Token 到 Pinia
 			userStore.setToken(data.access_token);
+            // 6. 拉取用户信息并刷新 TabBar
+            await userStore.fetchUserInfo();
 			
-			// 6. 显示成功提示
+			// 7. 显示成功提示
 			uni.showToast({
 				title: '登录成功',
 				icon: 'success'
 			});
 			
-			// 7. 跳转到管理后台首页
-			uni.redirectTo({
-				url: '/pages/admin/dashboard'
+			// 8. 跳转到管理员首页 Tab
+			uni.switchTab({
+				url: '/pages/index/index'
 			});
 			
 		} else {
@@ -66,7 +68,7 @@ const handleLogin = async () => {
 		}
 		
 	} catch (error) {
-		// 8. 登录失败 (request.js 会自动弹窗, 这里我们也设置错误信息)
+		// 9. 登录失败 (request.js 会自动弹窗, 这里我们也设置错误信息)
 		errorMsg.value = error.data?.detail || '登录失败，请重试';
 	} finally {
 		isLoading.value = false;
