@@ -96,7 +96,8 @@ const fetchTechnicians = async () => {
         const data = await getTechnicians();
         technicianList.value = data.map((item) => ({
             ...item,
-            nickname: item.nickname || item.phone || '未命名技师'
+            nickname: item.nickname || item.phone || '未命名技师',
+            services: (item.services || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         }));
     } catch (error) {
         console.error('加载技师失败:', error);
@@ -130,7 +131,8 @@ onMounted(refreshData);
 
 const openAssignPopup = (technician) => {
     selectedTechnician.value = technician;
-    selectedServiceUids.value = (technician.services || []).map((service) => service.uid);
+    const initial = (technician.services || []).map((service) => service.uid);
+    selectedServiceUids.value = Array.from(new Set(initial));
     assignPopup.value.open();
 };
 

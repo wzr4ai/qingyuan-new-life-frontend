@@ -82,6 +82,20 @@ export const removeServiceFromTech = (technicianUid, serviceUid) => {
 };
 
 /**
+ * 客户 & 角色管理
+ */
+export const getCustomers = () => {
+    return request({ url: '/admin/customers' });
+};
+export const updateCustomerRole = (userUid, targetRole) => {
+    return request({
+        url: `/admin/customers/${userUid}/role`,
+        method: 'PUT',
+        data: { target_role: targetRole }
+    });
+};
+
+/**
  * 排班 (Shifts - V6)
  */
 export const getShifts = (params) => {

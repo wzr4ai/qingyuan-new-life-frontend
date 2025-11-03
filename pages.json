@@ -78,6 +78,12 @@
 			}
 		},
 		{ 
+			"path": "pages/admin-crud/customers",
+			"style": {
+				"navigationBarTitleText": "客户管理"
+			}
+		},
+		{ 
 			"path": "pages/admin-crud/technicians",
 			"style": {
 				"navigationBarTitleText": "技师管理"

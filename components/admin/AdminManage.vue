@@ -38,6 +38,11 @@ const menuItems = ref([
         path: '/pages/admin-crud/resources'
     },
     {
+        title: '客户管理',
+        note: '升级客户为技师或管理员',
+        path: '/pages/admin-crud/customers'
+    },
+    {
         title: '技师管理',
         note: '管理技师角色和技能',
         path: '/pages/admin-crud/technicians'
