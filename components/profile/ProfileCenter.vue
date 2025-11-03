@@ -15,8 +15,34 @@
                 <text class="value">{{ userInfo?.phone || '未绑定' }}</text>
             </view>
             <view class="card-row">
-                <text class="label">角色</text>
-                <text class="value">{{ roleLabel }}</text>
+                <text class="label">真实角色</text>
+                <text class="value">{{ actualRoleLabel }}</text>
+            </view>
+            <view class="card-row">
+                <text class="label">当前视角</text>
+                <text class="value">{{ viewRoleLabel }}</text>
+            </view>
+        </view>
+
+        <view v-if="isAdmin" class="card">
+            <view class="card-title">视角切换</view>
+            <text class="tip">切换后可体验对应角色的功能，切换仅影响当前设备。</text>
+            <view class="switch-group">
+                <button
+                    class="switch-btn"
+                    :class="{ active: userStore.userRole === 'customer' }"
+                    @click="switchView('customer')"
+                >客户视角</button>
+                <button
+                    class="switch-btn"
+                    :class="{ active: userStore.userRole === 'technician' }"
+                    @click="switchView('technician')"
+                >技师视角</button>
+                <button
+                    class="switch-btn"
+                    :class="{ active: userStore.userRole === 'admin' }"
+                    @click="switchView('admin')"
+                >管理员视角</button>
             </view>
         </view>
 
@@ -32,8 +58,8 @@ const userStore = useUserStore();
 
 const userInfo = computed(() => userStore.userInfo);
 
-const roleLabel = computed(() => {
-    switch (userStore.userRole) {
+const mapRoleLabel = (role) => {
+    switch (role) {
         case 'admin':
             return '管理员';
         case 'technician':
@@ -41,9 +67,18 @@ const roleLabel = computed(() => {
         default:
             return '客户';
     }
-});
+};
 
+const actualRoleLabel = computed(() => mapRoleLabel(userStore.actualRole));
+const viewRoleLabel = computed(() => mapRoleLabel(userStore.userRole));
 const displayName = computed(() => userInfo.value?.nickname || userInfo.value?.phone || '未登录用户');
+const isAdmin = computed(() => userStore.actualRole === 'admin');
+
+const switchView = (role) => {
+    userStore.setRoleOverride(role);
+    const label = mapRoleLabel(role);
+    uni.showToast({ title: `已切换到${label}`, icon: 'none' });
+};
 
 const handleLogout = () => {
     userStore.logout();
@@ -123,6 +158,35 @@ const handleLogout = () => {
 .value {
     font-size: 28rpx;
     color: #333;
+}
+
+.tip {
+    display: block;
+    font-size: 24rpx;
+    color: #888;
+    margin-bottom: 20rpx;
+}
+
+.switch-group {
+    display: flex;
+    gap: 16rpx;
+    flex-wrap: wrap;
+}
+
+.switch-btn {
+    flex: 1;
+    min-width: 180rpx;
+    background-color: #ffffff;
+    border: 2rpx solid #007aff;
+    color: #007aff;
+    border-radius: 50rpx;
+    padding: 18rpx 0;
+    font-size: 28rpx;
+}
+
+.switch-btn.active {
+    background-color: #007aff;
+    color: #ffffff;
 }
 
 .logout-btn {

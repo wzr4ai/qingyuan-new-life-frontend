@@ -3,15 +3,19 @@ import { defineStore } from 'pinia';
 import { wxLogin, getMe } from '@/api/auth.js';
 import { getTabTextsByRole } from '@/config/tab-config.js';
 
+const ROLE_OPTIONS = ['customer', 'technician', 'admin'];
+
 export const useUserStore = defineStore('user', {
     state: () => ({
         token: uni.getStorageSync('token') || null,
         isLoggedIn: !!uni.getStorageSync('token'),
-        userInfo: uni.getStorageSync('userInfo') || null
+        userInfo: uni.getStorageSync('userInfo') || null,
+        roleOverride: uni.getStorageSync('roleOverride') || null
     }),
 
     getters: {
-        userRole: (state) => state.userInfo?.role || 'customer'
+        actualRole: (state) => state.userInfo?.role || 'customer',
+        userRole: (state) => state.roleOverride || state.userInfo?.role || 'customer'
     },
 
     actions: {
@@ -19,7 +23,6 @@ export const useUserStore = defineStore('user', {
          * 应用启动时的登录流程
          */
         async appLogin() {
-            // 先根据当前已知角色刷新一次 TabBar，避免初始界面错乱
             this.setDynamicTabBar();
 
             if (this.isLoggedIn) {
@@ -65,6 +68,10 @@ export const useUserStore = defineStore('user', {
                 this.userInfo = userInfo;
                 uni.setStorageSync('userInfo', userInfo);
                 console.log('用户信息获取成功, 角色:', this.userRole);
+
+                if (this.roleOverride && this.actualRole !== 'admin') {
+                    this.clearRoleOverride();
+                }
             } catch (error) {
                 console.error('获取用户信息失败 (Token 可能已过期):', error);
                 this.logout();
@@ -75,7 +82,7 @@ export const useUserStore = defineStore('user', {
         },
 
         /**
-         * 根据角色动态更新 TabBar 文案
+         * 根据视角动态更新 TabBar 文案
          */
         setDynamicTabBar() {
             const tabTexts = getTabTextsByRole(this.userRole);
@@ -93,12 +100,42 @@ export const useUserStore = defineStore('user', {
             uni.setStorageSync('token', newToken);
         },
 
+        setRoleOverride(targetRole) {
+            if (!this.userInfo || this.actualRole !== 'admin') {
+                uni.showToast({ title: '仅管理员可切换视角', icon: 'none' });
+                return;
+            }
+            if (!ROLE_OPTIONS.includes(targetRole)) {
+                uni.showToast({ title: '不支持的视角', icon: 'none' });
+                return;
+            }
+
+            const nextOverride = targetRole === this.actualRole ? null : targetRole;
+            this.roleOverride = nextOverride;
+
+            if (nextOverride) {
+                uni.setStorageSync('roleOverride', nextOverride);
+            } else {
+                uni.removeStorageSync('roleOverride');
+            }
+
+            this.setDynamicTabBar();
+        },
+
+        clearRoleOverride() {
+            this.roleOverride = null;
+            uni.removeStorageSync('roleOverride');
+            this.setDynamicTabBar();
+        },
+
         logout() {
             this.token = null;
             this.isLoggedIn = false;
             this.userInfo = null;
+            this.roleOverride = null;
             uni.removeStorageSync('token');
             uni.removeStorageSync('userInfo');
+            uni.removeStorageSync('roleOverride');
 
             this.setDynamicTabBar();
             uni.switchTab({ url: '/pages/index/index' });
