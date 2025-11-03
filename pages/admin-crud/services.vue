@@ -34,29 +34,45 @@
                 @close="formPopup.close()"
             >
                 <view class="form-body">
-                    <input
-                        class="popup-input"
-                        v-model="formData.name"
-                        placeholder="服务名称"
-                    />
-                    <input
-                        class="popup-input"
-                        type="number"
-                        v-model.number="formData.technician_operation_duration"
-                        placeholder="技师耗时 (分钟)"
-                    />
-                    <input
-                        class="popup-input"
-                        type="number"
-                        v-model.number="formData.room_operation_duration"
-                        placeholder="房间占用 (分钟)"
-                    />
-                    <input
-                        class="popup-input"
-                        type="number"
-                        v-model.number="formData.buffer_time"
-                        placeholder="缓冲时间 (分钟，可选)"
-                    />
+                    <view class="input-group">
+                        <text class="input-label">服务名称</text>
+                        <text class="input-hint">填写将在预约端展示的项目名称</text>
+                        <input
+                            class="popup-input"
+                            v-model="formData.name"
+                            placeholder="例如：全身经络调理"
+                        />
+                    </view>
+                    <view class="input-group">
+                        <text class="input-label">技师耗时</text>
+                        <text class="input-hint">单位：分钟，用于计算技师可预约时长</text>
+                        <input
+                            class="popup-input"
+                            type="number"
+                            v-model="formData.technician_operation_duration"
+                            placeholder="例如：60"
+                        />
+                    </view>
+                    <view class="input-group">
+                        <text class="input-label">房间占用</text>
+                        <text class="input-hint">单位：分钟，用于安排房间或床位周转</text>
+                        <input
+                            class="popup-input"
+                            type="number"
+                            v-model="formData.room_operation_duration"
+                            placeholder="例如：60"
+                        />
+                    </view>
+                    <view class="input-group">
+                        <text class="input-label">缓冲时间</text>
+                        <text class="input-hint">单位：分钟，可选，用于清洁或休息间隔</text>
+                        <input
+                            class="popup-input"
+                            type="number"
+                            v-model="formData.buffer_time"
+                            placeholder="例如：15"
+                        />
+                    </view>
                 </view>
             </uni-popup-dialog>
         </uni-popup>
@@ -77,9 +93,9 @@ const isEditMode = ref(false);
 const defaultForm = {
     uid: null,
     name: '',
-    technician_operation_duration: 60,
-    room_operation_duration: 60,
-    buffer_time: 15
+    technician_operation_duration: '60',
+    room_operation_duration: '60',
+    buffer_time: '15'
 };
 const formData = ref({ ...defaultForm });
 
@@ -109,7 +125,13 @@ const openCreateForm = () => {
 const openEditForm = (item) => {
     formTitle.value = `编辑：${item.name}`;
     isEditMode.value = true;
-    formData.value = { ...item };
+    formData.value = {
+        uid: item.uid,
+        name: item.name || '',
+        technician_operation_duration: item.technician_operation_duration != null ? String(item.technician_operation_duration) : '',
+        room_operation_duration: item.room_operation_duration != null ? String(item.room_operation_duration) : '',
+        buffer_time: item.buffer_time != null ? String(item.buffer_time) : ''
+    };
     formPopup.value.open();
 };
 
@@ -171,10 +193,30 @@ const handleSubmit = async () => {
     border: 1px solid #e5e5e5;
     border-radius: 4px;
     padding: 0 10px;
-    margin-bottom: 10px;
 }
 
 .form-body {
     padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group {
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 4px;
+}
+
+.input-hint {
+    font-size: 12px;
+    color: #888888;
+    margin-bottom: 6px;
 }
 </style>
