@@ -86,10 +86,15 @@ const assignPopup = ref(null);
 const selectedTechnician = ref(null);
 const selectedServiceUids = ref([]);
 
-const serviceOptions = computed(() => serviceList.value.map((service) => ({
-    text: service.name,
-    value: service.uid
-})));
+const serviceOptions = computed(() => {
+    return serviceList.value
+        .slice()
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .map((service) => ({
+            text: service.name,
+            value: String(service.uid)
+        }));
+});
 
 const fetchTechnicians = async () => {
     try {
@@ -131,7 +136,7 @@ onMounted(refreshData);
 
 const openAssignPopup = (technician) => {
     selectedTechnician.value = technician;
-    const initial = (technician.services || []).map((service) => service.uid);
+    const initial = (technician.services || []).map((service) => String(service.uid));
     selectedServiceUids.value = Array.from(new Set(initial));
     assignPopup.value.open();
 };
@@ -146,9 +151,10 @@ const handleAssign = async () => {
         return;
     }
     try {
-        const originalServices = (technician.services || []).map((service) => service.uid);
-        const toAdd = selectedServiceUids.value.filter((uid) => !originalServices.includes(uid));
-        const toRemove = originalServices.filter((uid) => !selectedServiceUids.value.includes(uid));
+        const originalServices = (technician.services || []).map((service) => String(service.uid));
+        const selected = selectedServiceUids.value.map((uid) => String(uid));
+        const toAdd = selected.filter((uid) => !originalServices.includes(uid));
+        const toRemove = originalServices.filter((uid) => !selected.includes(uid));
 
         for (const uid of toAdd) {
             await assignServiceToTech(technician.uid, uid);
