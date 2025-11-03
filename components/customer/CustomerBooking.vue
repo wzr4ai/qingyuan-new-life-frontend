@@ -193,27 +193,28 @@
                 <uni-icons type="close" size="18" color="#666" @click="closeDatePopup"></uni-icons>
             </view>
             <view v-if="dateWeeks.length" class="date-week-list">
-                <view class="weekday-header">
-                    <text v-for="label in weekdayLabels" :key="label" class="weekday-label">{{ label }}</text>
-                </view>
                 <view
-                    v-for="(week, index) in dateWeeks"
-                    :key="index"
-                    class="date-week-row"
+                    v-for="section in dateWeeks"
+                    :key="section.label"
+                    class="date-week-group"
                 >
-                    <button
-                        v-for="item in week"
+                    <text class="week-label">{{ section.label }}</text>
+                    <view
+                        v-for="item in section.days"
                         :key="item.date"
-                        class="date-chip"
+                        class="date-list-item"
                         :class="{
                             active: item.date === selectedDate,
                             disabled: !item.hasShift
                         }"
                         @click="() => handleDateSelect(item)"
                     >
-                        <text class="date-text">{{ item.display }}</text>
-                        <text class="weekday-text">{{ item.weekday }}</text>
-                    </button>
+                        <view class="date-list-left">
+                            <text class="date-text">{{ item.display }}</text>
+                            <text class="weekday-text">{{ item.weekday }}</text>
+                        </view>
+                        <uni-icons v-if="item.date === selectedDate" type="checkbox-filled" size="18" color="#409eff"></uni-icons>
+                    </view>
                 </view>
             </view>
             <view v-else class="times-empty">
@@ -339,59 +340,28 @@ const cartSummary = computed(() => {
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 const dateWeeks = computed(() => {
-    if (!dateOptions.value.length || !selectedDate.value) {
-        return chunkDates(dateOptions.value);
-    }
-
-    const referenceDate = new Date(selectedDate.value);
-    const start = new Date(referenceDate);
-    start.setDate(referenceDate.getDate() - referenceDate.getDay()); // start from Sunday
-
-    const extended = [];
+    const today = new Date();
+    const startOfWeek = addDays(new Date(today), -today.getDay());
+    const allDays = [];
     for (let i = 0; i < 14; i += 1) {
-        const date = addDays(start, i);
-        const iso = getISODate(date);
+        const current = addDays(startOfWeek, i);
+        const iso = getISODate(current);
         const option = dateOptions.value.find((item) => item.date === iso);
-        if (option) {
-            extended.push(option);
-        } else {
-            extended.push({
-                date: iso,
-                display: formatDisplayDate(iso),
-                weekday: weekdayLabels[date.getDay()],
-                hasShift: false
-            });
-        }
+        allDays.push({
+            date: iso,
+            display: formatDisplayDate(iso),
+            weekday: weekdayLabels[current.getDay()],
+            hasShift: option ? option.hasShift : false,
+            isNextWeek: i >= 7
+        });
     }
-    return chunkDates(extended);
+    const thisWeek = allDays.slice(0, 7);
+    const nextWeek = allDays.slice(7, 14);
+    return [
+        { label: '本周', days: thisWeek },
+        { label: '下周', days: nextWeek }
+    ];
 });
-
-function chunkDates(source) {
-    const chunks = [];
-    let cur = [];
-    source.forEach((item) => {
-        cur.push(item);
-        if (cur.length === 7) {
-            chunks.push(cur);
-            cur = [];
-        }
-    });
-    if (cur.length) {
-        while (cur.length < 7) {
-            const last = cur[cur.length - 1];
-            const nextDate = last ? addDays(last.date, 1) : new Date();
-            const dateObj = new Date(nextDate);
-            cur.push({
-                date: getISODate(dateObj),
-                display: formatDisplayDate(getISODate(dateObj)),
-                weekday: weekdayLabels[dateObj.getDay()],
-                hasShift: false
-            });
-        }
-        chunks.push(cur);
-    }
-    return chunks;
-}
 
 const selectedDateDisplay = computed(() => {
     if (!selectedDate.value) {
@@ -982,22 +952,46 @@ onBeforeUnmount(() => {
     gap: 12px;
 }
 
-.weekday-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font-size: 12px;
-    color: #909399;
+.date-week-group {
+    margin-bottom: 12px;
 }
 
-.weekday-label {
-    text-align: center;
+.week-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #606266;
+    margin-bottom: 8px;
 }
 
-.date-week-row {
+.date-list-item {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    padding: 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    background-color: #ffffff;
+    margin-bottom: 10px;
+}
+
+.date-list-item:last-of-type {
+    margin-bottom: 0;
+}
+
+.date-list-item.active {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+}
+
+.date-list-item.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.date-list-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .cart-preview {
