@@ -28,8 +28,14 @@
                 :title="item.name"
                 :note="`地点：${item.location?.name || '-'}`"
                 showArrow
-                @click="handleItemOptions(item)"
+                clickable
+                @click="openEditForm(item)"
             >
+                <template #footer>
+                    <button class="list-delete-btn" @click.stop="confirmDelete(item)">
+                        删除
+                    </button>
+                </template>
             </uni-list-item>
         </uni-list>
 
@@ -176,19 +182,6 @@ const openEditForm = (item) => {
     formPopup.value.open();
 };
 
-const handleItemOptions = (item) => {
-    uni.showActionSheet({
-        itemList: ['编辑', '删除'],
-        success: ({ tapIndex }) => {
-            if (tapIndex === 0) {
-                openEditForm(item);
-            } else if (tapIndex === 1) {
-                confirmDelete(item);
-            }
-        }
-    });
-};
-
 const confirmDelete = (item) => {
     uni.showModal({
         title: '确认删除',
@@ -305,5 +298,13 @@ const handleSubmit = async () => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.list-delete-btn {
+    padding: 4px 10px;
+    border: 1px solid #e43d33;
+    border-radius: 16px;
+    background-color: transparent;
+    color: #e43d33;
+    font-size: 12px;
 }
 </style>

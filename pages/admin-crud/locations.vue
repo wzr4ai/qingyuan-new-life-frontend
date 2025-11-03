@@ -8,17 +8,23 @@
 			</button>
 		</view>
 
-		<uni-list :border="true">
-			<uni-list-item 
-				v-for="item in locationList" 
-				:key="item.uid"
-				:title="item.name"
-				:note="item.address || '未设置地址'"
-				showArrow
-				@click="handleItemOptions(item)"
-			>
+			<uni-list :border="true">
+				<uni-list-item 
+					v-for="item in locationList" 
+					:key="item.uid"
+					:title="item.name"
+					:note="item.address || '未设置地址'"
+					showArrow
+					clickable
+					@click="openEditForm(item)"
+				>
+					<template #footer>
+						<button class="list-delete-btn" @click.stop="confirmDelete(item)">
+							删除
+						</button>
+					</template>
                 </uni-list-item>
-		</uni-list>
+			</uni-list>
         
         <view v-if="locationList.length === 0" class="empty-state">
             <text>暂无地点，请点击“新建”来添加您的第一个工作室地点。</text>
@@ -94,19 +100,6 @@ const openEditForm = (item) => {
 	isEditMode.value = true;
 	formData.value = { ...item }; // 复制数据到表单
 	formPopup.value.open();
-};
-
-const handleItemOptions = (item) => {
-    uni.showActionSheet({
-        itemList: ['编辑', '删除'],
-        success: ({ tapIndex }) => {
-            if (tapIndex === 0) {
-                openEditForm(item);
-            } else if (tapIndex === 1) {
-                confirmDelete(item);
-            }
-        }
-    });
 };
 
 const confirmDelete = (item) => {
@@ -193,6 +186,14 @@ const handleSubmit = async () => {
 }
 .form-body {
 	padding: 10px;
+}
+.list-delete-btn {
+	padding: 4px 10px;
+	border: 1px solid #e43d33;
+	border-radius: 16px;
+	background-color: transparent;
+	color: #e43d33;
+	font-size: 12px;
 }
 .empty-state {
     text-align: center;
