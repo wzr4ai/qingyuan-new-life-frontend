@@ -218,27 +218,27 @@
                                 <view v-if="item.morningSlots.length" class="slot-row">
                                     <text class="slot-label">早</text>
                                     <view class="slot-dots">
-                                        <text
+                                        <view
                                             v-for="slot in item.morningSlots"
                                             :key="slot"
-                                            class="slot-dot"
+                                            class="slot-chip"
                                             :class="{ busy: !isSlotFree(slot, item.date) }"
                                         >
-                                            {{ slot }}
-                                        </text>
+                                            <text class="slot-chip-text">{{ formatSlotLabel(slot) }}</text>
+                                        </view>
                                     </view>
                                 </view>
                                 <view v-if="item.afternoonSlots.length" class="slot-row">
                                     <text class="slot-label">午</text>
                                     <view class="slot-dots">
-                                        <text
+                                        <view
                                             v-for="slot in item.afternoonSlots"
                                             :key="slot"
-                                            class="slot-dot"
+                                            class="slot-chip"
                                             :class="{ busy: !isSlotFree(slot, item.date) }"
                                         >
-                                            {{ slot }}
-                                        </text>
+                                            <text class="slot-chip-text">{{ formatSlotLabel(slot) }}</text>
+                                        </view>
                                     </view>
                                 </view>
                             </view>
@@ -372,23 +372,29 @@ const cartSummary = computed(() => {
 const dateWeeks = computed(() => {
     const today = new Date();
     const startOfWeek = addDays(new Date(today), -today.getDay());
-    const allDays = [];
+    const thisWeek = [];
+    const nextWeek = [];
+
     for (let i = 0; i < 14; i += 1) {
         const current = addDays(startOfWeek, i);
         const iso = getISODate(current);
         const option = dateOptions.value.find((item) => item.date === iso);
-        allDays.push({
+        const dayPayload = {
             date: iso,
             display: formatDisplayDate(iso),
             weekday: weekdayLabels[current.getDay()],
             hasShift: option ? option.hasShift : false,
             morningSlots: option ? option.morningSlots || [] : [],
-            afternoonSlots: option ? option.afternoonSlots || [] : [],
-            isNextWeek: i >= 7
-        });
+            afternoonSlots: option ? option.afternoonSlots || [] : []
+        };
+
+        if (i < 7) {
+            thisWeek.push(dayPayload);
+        } else {
+            nextWeek.push(dayPayload);
+        }
     }
-    const thisWeek = allDays.slice(0, 7);
-    const nextWeek = allDays.slice(7, 14);
+
     return [
         { label: '本周', days: thisWeek },
         { label: '下周', days: nextWeek }
@@ -469,8 +475,8 @@ const updateDateOptions = async () => {
             weekday: item.weekday,
             hasShift: item.has_any_shift,
             display: formatDisplayDate(item.date),
-            morningActive: item.morning_active,
-            afternoonActive: item.afternoon_active
+            morningSlots: item.morning_slots || [],
+            afternoonSlots: item.afternoon_slots || []
         }));
         dateOptions.value = formatted;
         const tomorrowISO = getISODate(addDays(new Date(), 1));
@@ -686,6 +692,24 @@ const holdsMap = computed(() => {
 const isSlotFree = (slot, date) => {
     const daySet = holdsMap.value.get(date);
     return !(daySet && daySet.has(slot));
+};
+
+const formatSlotLabel = (slot) => {
+    if (!slot || typeof slot !== 'string') {
+        return slot;
+    }
+    const [hours, minutes] = slot.split(':').map((part) => Number(part));
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        return slot;
+    }
+    const startMinutes = (hours * 60) + minutes;
+    const endMinutes = (startMinutes + 60) % (24 * 60);
+    const formatMinutes = (total) => {
+        const hh = String(Math.floor(total / 60)).padStart(2, '0');
+        const mm = String(total % 60).padStart(2, '0');
+        return `${hh}:${mm}`;
+    };
+    return `${formatMinutes(startMinutes)}-${formatMinutes(endMinutes)}`;
 };
 
 function formatSlotTime(value) {
@@ -1021,19 +1045,6 @@ onBeforeUnmount(() => {
     gap: 4px;
 }
 
-.slot-dot {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background-color: #f0f2f5;
-    color: #999999;
-}
-
-.slot-dot.active {
-    background-color: #409eff;
-    color: #ffffff;
-}
-
 .slot-group {
     display: flex;
     flex-direction: column;
@@ -1054,12 +1065,33 @@ onBeforeUnmount(() => {
 
 .slot-dots {
     display: flex;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
-.slot-dot.busy {
-    background-color: #ffd9db;
-    color: #cc5151;
+.slot-chip {
+    min-width: 64px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background-color: #e4f7ec;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #b9e2c5;
+}
+
+.slot-chip.busy {
+    background-color: #ffecec;
+    border-color: #f7b5b5;
+}
+
+.slot-chip-text {
+    font-size: 11px;
+    color: #2f7a48;
+}
+
+.slot-chip.busy .slot-chip-text {
+    color: #c44747;
 }
 
 .cart-preview {
