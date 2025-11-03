@@ -213,7 +213,16 @@
                             <text class="date-text">{{ item.display }}</text>
                             <text class="weekday-text">{{ item.weekday }}</text>
                         </view>
-                        <uni-icons v-if="item.date === selectedDate" type="checkbox-filled" size="18" color="#409eff"></uni-icons>
+                        <view class="date-list-right">
+                            <view
+                                v-if="item.morningActive || item.afternoonActive"
+                                class="slot-indicator"
+                            >
+                                <text class="slot-dot" :class="{ active: item.morningActive }">早</text>
+                                <text class="slot-dot" :class="{ active: item.afternoonActive }">午</text>
+                            </view>
+                            <uni-icons v-if="item.date === selectedDate" type="checkbox-filled" size="18" color="#409eff"></uni-icons>
+                        </view>
                     </view>
                 </view>
             </view>
@@ -234,6 +243,7 @@ import {
     queryPackageAvailability
 } from '@/api/schedule.js';
 import { useBookingCartStore } from '@/store/bookingCart.js';
+import { addDays, getISODate, formatDisplayDate, formatWeekday, weekdayLabels } from '@/components/customer/DateUtil.js';
 
 const cartStore = useBookingCartStore();
 
@@ -338,8 +348,6 @@ const cartSummary = computed(() => {
     return { count, countdown };
 });
 
-const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-
 const dateWeeks = computed(() => {
     const today = new Date();
     const startOfWeek = addDays(new Date(today), -today.getDay());
@@ -353,6 +361,8 @@ const dateWeeks = computed(() => {
             display: formatDisplayDate(iso),
             weekday: weekdayLabels[current.getDay()],
             hasShift: option ? option.hasShift : false,
+            morningActive: option ? option.morningActive : false,
+            afternoonActive: option ? option.afternoonActive : false,
             isNextWeek: i >= 7
         });
     }
@@ -437,7 +447,9 @@ const updateDateOptions = async () => {
             date: item.date,
             weekday: item.weekday,
             hasShift: item.has_any_shift,
-            display: formatDisplayDate(item.date)
+            display: formatDisplayDate(item.date),
+            morningActive: item.morning_active,
+            afternoonActive: item.afternoon_active
         }));
         dateOptions.value = formatted;
         const tomorrowISO = getISODate(addDays(new Date(), 1));
@@ -636,36 +648,11 @@ const goCheckout = () => {
     uni.navigateTo({ url: '/pages/appointment/checkout' });
 };
 
-function addDays(date, amount) {
-    const next = new Date(date);
-    next.setDate(next.getDate() + amount);
-    return next;
-}
-
-function getISODate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function formatDisplayDate(value) {
-    const date = new Date(value);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return `${month}月${day}日`;
-}
-
 function formatSlotTime(value) {
     const date = new Date(value);
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
-}
-
-function formatWeekday(date) {
-    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return weekdays[date.getDay()];
 }
 
 function formatCountdown(ms) {
@@ -981,6 +968,30 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.date-list-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.slot-indicator {
+    display: flex;
+    gap: 4px;
+}
+
+.slot-dot {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background-color: #f0f2f5;
+    color: #999999;
+}
+
+.slot-dot.active {
+    background-color: #409eff;
+    color: #ffffff;
 }
 
 .cart-preview {
