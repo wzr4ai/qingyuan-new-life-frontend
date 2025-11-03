@@ -214,12 +214,33 @@
                             <text class="weekday-text">{{ item.weekday }}</text>
                         </view>
                         <view class="date-list-right">
-                            <view
-                                v-if="item.morningActive || item.afternoonActive"
-                                class="slot-indicator"
-                            >
-                                <text class="slot-dot" :class="{ active: item.morningActive }">早</text>
-                                <text class="slot-dot" :class="{ active: item.afternoonActive }">午</text>
+                            <view class="slot-group" v-if="item.morningSlots.length || item.afternoonSlots.length">
+                                <view v-if="item.morningSlots.length" class="slot-row">
+                                    <text class="slot-label">早</text>
+                                    <view class="slot-dots">
+                                        <text
+                                            v-for="slot in item.morningSlots"
+                                            :key="slot"
+                                            class="slot-dot"
+                                            :class="{ busy: !isSlotFree(slot, item.date) }"
+                                        >
+                                            {{ slot }}
+                                        </text>
+                                    </view>
+                                </view>
+                                <view v-if="item.afternoonSlots.length" class="slot-row">
+                                    <text class="slot-label">午</text>
+                                    <view class="slot-dots">
+                                        <text
+                                            v-for="slot in item.afternoonSlots"
+                                            :key="slot"
+                                            class="slot-dot"
+                                            :class="{ busy: !isSlotFree(slot, item.date) }"
+                                        >
+                                            {{ slot }}
+                                        </text>
+                                    </view>
+                                </view>
                             </view>
                             <uni-icons v-if="item.date === selectedDate" type="checkbox-filled" size="18" color="#409eff"></uni-icons>
                         </view>
@@ -361,8 +382,8 @@ const dateWeeks = computed(() => {
             display: formatDisplayDate(iso),
             weekday: weekdayLabels[current.getDay()],
             hasShift: option ? option.hasShift : false,
-            morningActive: option ? option.morningActive : false,
-            afternoonActive: option ? option.afternoonActive : false,
+            morningSlots: option ? option.morningSlots || [] : [],
+            afternoonSlots: option ? option.afternoonSlots || [] : [],
             isNextWeek: i >= 7
         });
     }
@@ -646,6 +667,25 @@ const removeCartItem = (id) => {
 
 const goCheckout = () => {
     uni.navigateTo({ url: '/pages/appointment/checkout' });
+};
+
+const holdsMap = computed(() => {
+    const map = new Map();
+    cartItems.value.forEach((item) => {
+        const start = new Date(item.startTimeISO);
+        const slotKey = formatSlotTime(start);
+        const day = item.date;
+        if (!map.has(day)) {
+            map.set(day, new Set());
+        }
+        map.get(day).add(slotKey);
+    });
+    return map;
+});
+
+const isSlotFree = (slot, date) => {
+    const daySet = holdsMap.value.get(date);
+    return !(daySet && daySet.has(slot));
 };
 
 function formatSlotTime(value) {
@@ -992,6 +1032,34 @@ onBeforeUnmount(() => {
 .slot-dot.active {
     background-color: #409eff;
     color: #ffffff;
+}
+
+.slot-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-right: 6px;
+}
+
+.slot-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.slot-label {
+    font-size: 10px;
+    color: #606266;
+}
+
+.slot-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.slot-dot.busy {
+    background-color: #ffd9db;
+    color: #cc5151;
 }
 
 .cart-preview {
