@@ -160,7 +160,7 @@
     </view>
 
     <uni-popup ref="timesPopup" type="bottom" background-color="#ffffff">
-        <view class="times-popup">
+        <scroll-view class="times-popup" scroll-y :scroll-top="timesPopupScrollTop">
             <view class="popup-header">
                 <text>请选择开始时间</text>
                 <uni-icons type="close" size="18" color="#666" @click="closeTimesPopup"></uni-icons>
@@ -186,10 +186,7 @@
                             :disabled="slot.disabled"
                             @click="() => handleSelectSlot(slot.raw)"
                         >
-                            <text class="time-text">{{ slot.time }}</text>
-                            <text class="time-range" v-if="slot.range">{{ slot.range }}</text>
-                            <text class="time-hint" v-if="slot.technician">{{ slot.technician }}</text>
-                            <text class="time-sub-hint" v-if="slot.resource">{{ slot.resource }}</text>
+                            <text class="time-text">{{ slot.range }}</text>
                         </button>
                     </view>
                 </view>
@@ -197,7 +194,7 @@
             <view v-else class="times-empty">
                 <text>暂无符合条件的时间，请调整条件后重试。</text>
             </view>
-        </view>
+        </scroll-view>
     </uni-popup>
 
     <uni-popup ref="datePopup" type="bottom" background-color="#ffffff">
@@ -312,6 +309,7 @@ const selectedAttendeeId = ref('self');
 const availableSlots = ref([]);
 const isQuerying = ref(false);
 const timesPopup = ref(null);
+const timesPopupScrollTop = ref(0);
 const datePopup = ref(null);
 const datePopupScrollTop = ref(0);
 
@@ -458,8 +456,8 @@ const slotDurationMinutes = computed(() => {
     }
     return DEFAULT_SLOT_DURATION_MINUTES;
 });
-const slotAvailabilityMap = computed(() => {
-    const map = new Map();
+const timeSummaries = computed(() => {
+    const slotAvailabilityMap = new Map();
     availableSlots.value.forEach((slot) => {
         const normalized = normalizeSlotPayload(slot);
         if (!normalized) {
@@ -470,24 +468,18 @@ const slotAvailabilityMap = computed(() => {
             return;
         }
         const timeLabel = formatSlotTime(start);
-        if (!map.has(timeLabel)) {
-            map.set(timeLabel, []);
+        if (!slotAvailabilityMap.has(timeLabel)) {
+            slotAvailabilityMap.set(timeLabel, []);
         }
-        map.get(timeLabel).push(normalized);
+        slotAvailabilityMap.get(timeLabel).push(normalized);
     });
-    return map;
-});
 
-const timeSummaries = computed(() => {
     const buildItemsForPeriod = (periodKey) => {
         const definitions = PERIOD_SLOT_DEFINITIONS[periodKey] || [];
-        const definedStarts = new Set(definitions.map((definition) => definition.start));
-        const items = definitions.map((definition) => {
+        return definitions.map((definition) => {
             const timeLabel = definition.start;
-            const availableSlotsForTime = slotAvailabilityMap.value.get(timeLabel) || [];
+            const availableSlotsForTime = slotAvailabilityMap.get(timeLabel) || [];
             const slot = availableSlotsForTime[0] || null;
-            const technicianName = slot?.technician?.nickname || slot?.technician?.phone || '';
-            const resourceName = slot?.resource?.name || '';
             const isHeld = !isSlotFree(timeLabel, selectedDate.value);
             const hasAvailability = Boolean(slot) && !isHeld;
             const durationLabel = definition.end
@@ -499,41 +491,11 @@ const timeSummaries = computed(() => {
                     : `placeholder-${periodKey}-${timeLabel}`,
                 time: timeLabel,
                 range: durationLabel,
-                technician: technicianName ? `技师 ${technicianName}` : '',
-                resource: resourceName ? `房间 ${resourceName}` : '',
                 disabled: !hasAvailability,
                 isAvailable: hasAvailability,
                 raw: hasAvailability ? slot : null
             };
         });
-        slotAvailabilityMap.value.forEach((slotList, timeLabel) => {
-            if (definedStarts.has(timeLabel)) {
-                return;
-            }
-            const hour = Number.parseInt(timeLabel.split(':')[0], 10);
-            const derivedPeriod = Number.isNaN(hour) ? null : (hour < 12 ? 'morning' : 'afternoon');
-            if (derivedPeriod !== periodKey || !slotList.length) {
-                return;
-            }
-            const slot = slotList[0];
-            const technicianName = slot.technician?.nickname || slot.technician?.phone || '';
-            const resourceName = slot.resource?.name || '';
-            const isHeld = !isSlotFree(timeLabel, selectedDate.value);
-            const durationMinutes = slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
-            const end = new Date(new Date(slot.start_time).getTime() + durationMinutes * 60000);
-            items.push({
-                id: [slot.start_time, slot.technician?.uid || 'tech', slot.resource?.uid || 'res'].join('-'),
-                time: timeLabel,
-                range: durationMinutes ? `${timeLabel} - ${formatSlotTime(end)}` : '',
-                technician: technicianName ? `技师 ${technicianName}` : '',
-                resource: resourceName ? `房间 ${resourceName}` : '',
-                disabled: isHeld,
-                isAvailable: !isHeld,
-                raw: !isHeld ? slot : null
-            });
-        });
-        items.sort((a, b) => a.time.localeCompare(b.time));
-        return items;
     };
 
     return PERIOD_SEQUENCE
@@ -791,6 +753,7 @@ const handleQueryTimes = async () => {
         const response = await queryPackageAvailability(payload);
         availableSlots.value = response.available_slots || [];
         if (availableSlots.value.length) {
+            timesPopupScrollTop.value = 0;
             timesPopup.value?.open();
         } else {
             uni.showToast({ title: '暂无可用时段', icon: 'none' });
@@ -1106,6 +1069,8 @@ onBeforeUnmount(() => {
 
 .times-popup {
     padding: 16px;
+    max-height: 70vh;
+    box-sizing: border-box;
 }
 
 .popup-header {
