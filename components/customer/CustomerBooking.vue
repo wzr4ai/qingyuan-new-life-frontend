@@ -187,6 +187,7 @@
                             @click="() => handleSelectSlot(slot.raw)"
                         >
                             <text class="time-text">{{ slot.time }}</text>
+                            <text class="time-range" v-if="slot.range">{{ slot.range }}</text>
                             <text class="time-hint" v-if="slot.technician">{{ slot.technician }}</text>
                             <text class="time-sub-hint" v-if="slot.resource">{{ slot.resource }}</text>
                         </button>
@@ -388,13 +389,49 @@ const DEFAULT_SLOT_DURATION_MINUTES = 30;
 
 const packageDurationInfo = computed(() => calculatePackageDurations());
 
+const getSlotTimestamp = (slot) => {
+    if (!slot) {
+        return Number.NaN;
+    }
+    if (typeof slot === 'string') {
+        if (!selectedDate.value) {
+            return Number.NaN;
+        }
+        return new Date(`${selectedDate.value}T${slot}:00`).getTime();
+    }
+    if (slot.start_time) {
+        return new Date(slot.start_time).getTime();
+    }
+    return Number.NaN;
+};
+
+const normalizeSlotPayload = (slot) => {
+    if (!slot) {
+        return null;
+    }
+    if (typeof slot === 'string') {
+        if (!selectedDate.value) {
+            return null;
+        }
+        return {
+            start_time: `${selectedDate.value}T${slot}:00`,
+            technician: null,
+            resource: null
+        };
+    }
+    if (slot.start_time) {
+        return slot;
+    }
+    return null;
+};
+
 const slotDurationMinutes = computed(() => {
     const inferred = packageDurationInfo.value.total || 0;
     if (inferred > 0) {
         return inferred;
     }
     const sortedTimes = availableSlots.value
-        .map((item) => new Date(item.start_time).getTime())
+        .map((item) => getSlotTimestamp(item))
         .filter((timestamp) => Number.isFinite(timestamp))
         .sort((a, b) => a - b);
     if (sortedTimes.length >= 2) {
@@ -413,12 +450,16 @@ const timeSummaries = computed(() => {
     };
 
     availableSlots.value.forEach((slot) => {
-        const start = new Date(slot.start_time);
+        const normalized = normalizeSlotPayload(slot);
+        if (!normalized) {
+            return;
+        }
+        const start = new Date(normalized.start_time);
         if (Number.isNaN(start.getTime())) {
             return;
         }
         const key = start.getHours() < 12 ? 'morning' : 'afternoon';
-        groups[key].slots.push(slot);
+        groups[key].slots.push(normalized);
     });
 
     const buildItems = (slots) => slots
@@ -431,11 +472,14 @@ const timeSummaries = computed(() => {
             }
             const timeLabel = formatSlotTime(start);
             const isHeld = !isSlotFree(timeLabel, selectedDate.value);
+            const durationMinutes = slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
+            const end = new Date(start.getTime() + durationMinutes * 60000);
             const technicianName = slot.technician?.nickname || slot.technician?.phone || '';
             const resourceName = slot.resource?.name || '';
             return {
                 id: [slot.start_time, slot.technician?.uid || 'tech', slot.resource?.uid || 'res'].join('-'),
                 time: timeLabel,
+                range: durationMinutes ? `${timeLabel} - ${formatSlotTime(end)}` : '',
                 technician: technicianName ? `技师 ${technicianName}` : '',
                 resource: resourceName ? `房间 ${resourceName}` : '',
                 disabled: isHeld,
@@ -1093,6 +1137,11 @@ onBeforeUnmount(() => {
 .time-text {
     font-size: 16px;
     font-weight: 600;
+}
+
+.time-range {
+    font-size: 12px;
+    color: #909399;
 }
 
 .time-hint {
