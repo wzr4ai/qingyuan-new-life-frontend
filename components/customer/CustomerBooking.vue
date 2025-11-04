@@ -225,7 +225,7 @@
                         <view class="date-list-right">
                             <view class="period-summary-group" v-if="item.morningSlots.length || item.afternoonSlots.length">
                                 <view v-if="item.morningSlots.length" class="period-summary">
-                                    <text class="period-label">早</text>
+                                    <text class="period-label">上午</text>
                                     <text
                                         class="period-status"
                                         :class="{
@@ -237,7 +237,7 @@
                                     </text>
                                 </view>
                                 <view v-if="item.afternoonSlots.length" class="period-summary">
-                                    <text class="period-label">午</text>
+                                    <text class="period-label">下午</text>
                                     <text
                                         class="period-status"
                                         :class="{
