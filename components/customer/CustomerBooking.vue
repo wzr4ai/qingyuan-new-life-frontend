@@ -182,7 +182,7 @@
                             v-for="slot in summary.items"
                             :key="slot.id"
                             class="time-chip slot-chip"
-                            :class="{ disabled: slot.disabled }"
+                            :class="{ disabled: slot.disabled, available: slot.isAvailable }"
                             :disabled="slot.disabled"
                             @click="() => handleSelectSlot(slot.raw)"
                         >
@@ -387,6 +387,22 @@ const cartSummary = computed(() => {
 
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 
+const PERIOD_SEQUENCE = ['morning', 'afternoon'];
+const PERIOD_SLOT_DEFINITIONS = {
+    morning: [
+        { start: '08:30', end: '09:30' },
+        { start: '09:30', end: '10:30' },
+        { start: '10:30', end: '11:30' },
+        { start: '11:30', end: '12:30' }
+    ],
+    afternoon: [
+        { start: '14:00', end: '15:00' },
+        { start: '15:00', end: '16:00' },
+        { start: '16:00', end: '17:00' },
+        { start: '17:00', end: '18:00' }
+    ]
+};
+
 const packageDurationInfo = computed(() => calculatePackageDurations());
 
 const getSlotTimestamp = (slot) => {
@@ -442,12 +458,8 @@ const slotDurationMinutes = computed(() => {
     }
     return DEFAULT_SLOT_DURATION_MINUTES;
 });
-
 const timeSummaries = computed(() => {
-    const groups = {
-        morning: { period: 'morning', label: '上午', slots: [] },
-        afternoon: { period: 'afternoon', label: '下午', slots: [] }
-    };
+    const slotBuckets = new Map();
 
     availableSlots.value.forEach((slot) => {
         const normalized = normalizeSlotPayload(slot);
@@ -458,45 +470,97 @@ const timeSummaries = computed(() => {
         if (Number.isNaN(start.getTime())) {
             return;
         }
-        const key = start.getHours() < 12 ? 'morning' : 'afternoon';
-        groups[key].slots.push(normalized);
+        const period = start.getHours() < 12 ? 'morning' : 'afternoon';
+        const timeLabel = formatSlotTime(start);
+        const bucketKey = `${period}-${timeLabel}`;
+        if (!slotBuckets.has(bucketKey)) {
+            slotBuckets.set(bucketKey, []);
+        }
+        slotBuckets.get(bucketKey).push({ normalized, start });
     });
 
-    const buildItems = (slots) => slots
-        .slice()
-        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
-        .map((slot) => {
-            const start = new Date(slot.start_time);
-            if (Number.isNaN(start.getTime())) {
-                return null;
-            }
-            const timeLabel = formatSlotTime(start);
-            const isHeld = !isSlotFree(timeLabel, selectedDate.value);
-            const durationMinutes = slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
-            const end = new Date(start.getTime() + durationMinutes * 60000);
-            const technicianName = slot.technician?.nickname || slot.technician?.phone || '';
-            const resourceName = slot.resource?.name || '';
-            return {
-                id: [slot.start_time, slot.technician?.uid || 'tech', slot.resource?.uid || 'res'].join('-'),
-                time: timeLabel,
-                range: durationMinutes ? `${timeLabel} - ${formatSlotTime(end)}` : '',
-                technician: technicianName ? `技师 ${technicianName}` : '',
-                resource: resourceName ? `房间 ${resourceName}` : '',
-                disabled: isHeld,
-                raw: slot
-            };
-        })
-        .filter(Boolean);
+    const buildItemsForPeriod = (periodKey) => {
+        const definitions = PERIOD_SLOT_DEFINITIONS[periodKey] || [];
+        const items = [];
+        const handledKeys = new Set();
 
-    return ['morning', 'afternoon']
-        .map((key) => {
-            const group = groups[key];
-            const items = buildItems(group.slots);
-            const availableCount = items.filter((item) => !item.disabled).length;
+        definitions.forEach((definition) => {
+            const bucketKey = `${periodKey}-${definition.start}`;
+            handledKeys.add(bucketKey);
+            const availableItems = slotBuckets.get(bucketKey) || [];
+            if (availableItems.length) {
+                availableItems
+                    .slice()
+                    .sort((a, b) => a.start - b.start)
+                    .forEach(({ normalized }) => {
+                        const technicianName = normalized.technician?.nickname || normalized.technician?.phone || '';
+                        const resourceName = normalized.resource?.name || '';
+                        const timeLabel = definition.start;
+                        const isHeld = !isSlotFree(timeLabel, selectedDate.value);
+                        items.push({
+                            id: [normalized.start_time, normalized.technician?.uid || 'tech', normalized.resource?.uid || 'res'].join('-'),
+                            time: timeLabel,
+                            range: definition.end ? `${definition.start} - ${definition.end}` : '',
+                            technician: technicianName ? `技师 ${technicianName}` : '',
+                            resource: resourceName ? `房间 ${resourceName}` : '',
+                            disabled: isHeld,
+                            isAvailable: !isHeld,
+                            raw: normalized
+                        });
+                    });
+            } else {
+                items.push({
+                    id: `placeholder-${periodKey}-${definition.start}`,
+                    time: definition.start,
+                    range: definition.end ? `${definition.start} - ${definition.end}` : '',
+                    technician: '',
+                    resource: '',
+                    disabled: true,
+                    isAvailable: false,
+                    raw: null
+                });
+            }
+        });
+
+        slotBuckets.forEach((availableItems, bucketKey) => {
+            if (!bucketKey.startsWith(`${periodKey}-`) || handledKeys.has(bucketKey)) {
+                return;
+            }
+            availableItems
+                .slice()
+                .sort((a, b) => a.start - b.start)
+                .forEach(({ normalized, start }) => {
+                    const timeLabel = formatSlotTime(start);
+                    const isHeld = !isSlotFree(timeLabel, selectedDate.value);
+                    const durationMinutes = slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
+                    const end = new Date(start.getTime() + durationMinutes * 60000);
+                    const technicianName = normalized.technician?.nickname || normalized.technician?.phone || '';
+                    const resourceName = normalized.resource?.name || '';
+                    items.push({
+                        id: [normalized.start_time, normalized.technician?.uid || 'tech', normalized.resource?.uid || 'res'].join('-'),
+                        time: timeLabel,
+                        range: durationMinutes ? `${timeLabel} - ${formatSlotTime(end)}` : '',
+                        technician: technicianName ? `技师 ${technicianName}` : '',
+                        resource: resourceName ? `房间 ${resourceName}` : '',
+                        disabled: isHeld,
+                        isAvailable: !isHeld,
+                        raw: normalized
+                    });
+                });
+        });
+
+        return items;
+    };
+
+    return PERIOD_SEQUENCE
+        .map((periodKey) => {
+            const label = periodKey === 'morning' ? '上午' : '下午';
+            const items = buildItemsForPeriod(periodKey);
+            const availableCount = items.filter((item) => item.isAvailable).length;
             const totalMinutes = availableCount * slotDurationMinutes.value;
             return {
-                period: group.period,
-                label: group.label,
+                period: periodKey,
+                label,
                 totalMinutes,
                 items
             };
@@ -1154,8 +1218,32 @@ onBeforeUnmount(() => {
     color: #909399;
 }
 
+.time-chip.available {
+    border-color: #67c23a;
+    background-color: #f0f9eb;
+}
+
+.time-chip.available .time-text {
+    color: #3c8c3a;
+}
+
+.time-chip.available .time-range,
+.time-chip.available .time-hint,
+.time-chip.available .time-sub-hint {
+    color: #3c8c3a;
+}
+
 .time-chip.disabled {
-    opacity: 0.6;
+    border-color: #ebeef5;
+    background-color: #f5f7fa;
+    color: #c0c4cc;
+}
+
+.time-chip.disabled .time-text,
+.time-chip.disabled .time-range,
+.time-chip.disabled .time-hint,
+.time-chip.disabled .time-sub-hint {
+    color: #c0c4cc;
 }
 
 .times-empty {
