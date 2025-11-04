@@ -165,15 +165,24 @@
                 <text>请选择开始时间</text>
                 <uni-icons type="close" size="18" color="#666" @click="closeTimesPopup"></uni-icons>
             </view>
-            <view v-if="availableSlots.length" class="times-grid">
+            <view v-if="timeSummaries.length" class="times-grid period-grid">
                 <button
-                    v-for="slot in availableSlots"
-                    :key="slot.start_time"
-                    class="time-chip"
-                    @click="() => handleSelectSlot(slot)"
+                    v-for="summary in timeSummaries"
+                    :key="summary.period"
+                    class="time-chip period-chip"
+                    :class="{
+                        available: summary.isAvailable,
+                        full: !summary.isAvailable,
+                        disabled: !summary.isAvailable || !summary.slots.length
+                    }"
+                    :disabled="!summary.isAvailable || !summary.slots.length"
+                    @click="() => handleSelectPeriod(summary.period)"
                 >
-                    <text class="time-text">{{ formatSlotTime(slot.start_time) }}</text>
-                    <text class="time-subtext" v-if="slot.technician">{{ slot.technician.nickname || slot.technician.phone || '技师' }}</text>
+                    <text class="time-text">{{ summary.label }}</text>
+                    <text class="time-status">{{ summary.isAvailable ? '有空' : '已满' }}</text>
+                    <text class="time-hint" v-if="summary.slots.length">
+                        空闲 {{ formatAvailableMinutes(summary.totalMinutes) }}
+                    </text>
                 </button>
             </view>
             <view v-else class="times-empty">
@@ -367,6 +376,60 @@ const cartSummary = computed(() => {
     }
     const countdown = formatCountdown(minRemaining);
     return { count, countdown };
+});
+
+const MIN_PERIOD_AVAILABLE_MINUTES = 60;
+const DEFAULT_SLOT_DURATION_MINUTES = 30;
+
+const packageDurationInfo = computed(() => calculatePackageDurations());
+
+const slotDurationMinutes = computed(() => {
+    const inferred = packageDurationInfo.value.total || 0;
+    if (inferred > 0) {
+        return inferred;
+    }
+    const sortedTimes = availableSlots.value
+        .map((item) => new Date(item.start_time).getTime())
+        .filter((timestamp) => Number.isFinite(timestamp))
+        .sort((a, b) => a - b);
+    if (sortedTimes.length >= 2) {
+        const diffMinutes = Math.round((sortedTimes[1] - sortedTimes[0]) / 60000);
+        if (diffMinutes > 0) {
+            return diffMinutes;
+        }
+    }
+    return DEFAULT_SLOT_DURATION_MINUTES;
+});
+
+const timeSummaries = computed(() => {
+    const morningSlots = [];
+    const afternoonSlots = [];
+    availableSlots.value.forEach((slot) => {
+        const start = new Date(slot.start_time);
+        if (Number.isNaN(start.getTime())) {
+            return;
+        }
+        if (start.getHours() < 12) {
+            morningSlots.push(slot);
+        } else {
+            afternoonSlots.push(slot);
+        }
+    });
+    const toSummary = (period, label, slots) => {
+        const totalMinutes = slots.length * slotDurationMinutes.value;
+        const isAvailable = totalMinutes >= MIN_PERIOD_AVAILABLE_MINUTES;
+        return {
+            period,
+            label,
+            slots,
+            totalMinutes,
+            isAvailable
+        };
+    };
+    return [
+        toSummary('morning', '上午', morningSlots),
+        toSummary('afternoon', '下午', afternoonSlots)
+    ];
 });
 
 const dateWeeks = computed(() => {
@@ -637,6 +700,18 @@ const closeDatePopup = () => {
     datePopup.value?.close();
 };
 
+const handleSelectPeriod = (period) => {
+    const summary = timeSummaries.value.find((item) => item.period === period);
+    if (!summary || !summary.slots.length || !summary.isAvailable) {
+        return;
+    }
+    const [firstSlot] = summary.slots;
+    if (!firstSlot) {
+        return;
+    }
+    handleSelectSlot(firstSlot);
+};
+
 const handleSelectSlot = (slot) => {
     const { total, serviceOrder } = calculatePackageDurations();
     const totalMinutes = total || 0;
@@ -728,6 +803,21 @@ function formatCountdown(ms) {
     const seconds = String(totalSeconds % 60).padStart(2, '0');
     return `${minutes}:${seconds}`;
 }
+
+const formatAvailableMinutes = (minutes) => {
+    if (!minutes || minutes <= 0) {
+        return '0分钟';
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    if (hours && remainder) {
+        return `${hours}小时${remainder}分钟`;
+    }
+    if (hours) {
+        return `${hours}小时`;
+    }
+    return `${remainder}分钟`;
+};
 
 watch(selectedLocationUid, async (next) => {
     if (!next) {
@@ -946,6 +1036,15 @@ onBeforeUnmount(() => {
     gap: 10px;
 }
 
+.period-grid {
+    width: 100%;
+}
+
+.period-chip {
+    flex: 1;
+    min-width: calc(50% - 5px);
+}
+
 .time-chip {
     min-width: 100px;
     padding: 12px;
@@ -953,6 +1052,10 @@ onBeforeUnmount(() => {
     border: 1px solid #e5e5e5;
     text-align: center;
     background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
 }
 
 .time-text {
@@ -960,11 +1063,36 @@ onBeforeUnmount(() => {
     font-weight: 600;
 }
 
-.time-subtext {
-    display: block;
+.time-status {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.time-hint {
     font-size: 12px;
-    color: #909399;
-    margin-top: 4px;
+    color: #606266;
+}
+
+.time-chip.available {
+    border-color: #67c23a;
+    background-color: #f0f9eb;
+}
+
+.time-chip.available .time-status {
+    color: #67c23a;
+}
+
+.time-chip.full {
+    border-color: #f56c6c;
+    background-color: #fef0f0;
+}
+
+.time-chip.full .time-status {
+    color: #f56c6c;
+}
+
+.time-chip.disabled {
+    opacity: 0.6;
 }
 
 .times-empty {
