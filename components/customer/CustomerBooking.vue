@@ -165,25 +165,33 @@
                 <text>请选择开始时间</text>
                 <uni-icons type="close" size="18" color="#666" @click="closeTimesPopup"></uni-icons>
             </view>
-            <view v-if="timeSummaries.length" class="times-grid period-grid">
-                <button
+            <view v-if="timeSummaries.length" class="period-list">
+                <view
                     v-for="summary in timeSummaries"
                     :key="summary.period"
-                    class="time-chip period-chip"
-                    :class="{
-                        available: summary.isAvailable,
-                        full: !summary.isAvailable,
-                        disabled: !summary.isAvailable || !summary.slots.length
-                    }"
-                    :disabled="!summary.isAvailable || !summary.slots.length"
-                    @click="() => handleSelectPeriod(summary.period)"
+                    class="period-section"
                 >
-                    <text class="time-text">{{ summary.label }}</text>
-                    <text class="time-status">{{ summary.isAvailable ? '有空' : '已满' }}</text>
-                    <text class="time-hint" v-if="summary.slots.length">
-                        空闲 {{ formatAvailableMinutes(summary.totalMinutes) }}
-                    </text>
-                </button>
+                    <view class="period-header">
+                        <text class="period-title">{{ summary.label }}</text>
+                        <text class="period-hint" v-if="summary.totalMinutes">
+                            空闲 {{ formatAvailableMinutes(summary.totalMinutes) }}
+                        </text>
+                    </view>
+                    <view class="times-grid slot-grid">
+                        <button
+                            v-for="slot in summary.items"
+                            :key="slot.id"
+                            class="time-chip slot-chip"
+                            :class="{ disabled: slot.disabled }"
+                            :disabled="slot.disabled"
+                            @click="() => handleSelectSlot(slot.raw)"
+                        >
+                            <text class="time-text">{{ slot.time }}</text>
+                            <text class="time-hint" v-if="slot.technician">{{ slot.technician }}</text>
+                            <text class="time-sub-hint" v-if="slot.resource">{{ slot.resource }}</text>
+                        </button>
+                    </view>
+                </view>
             </view>
             <view v-else class="times-empty">
                 <text>暂无符合条件的时间，请调整条件后重试。</text>
@@ -376,7 +384,6 @@ const cartSummary = computed(() => {
     return { count, countdown };
 });
 
-const MIN_PERIOD_AVAILABLE_MINUTES = 60;
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 
 const packageDurationInfo = computed(() => calculatePackageDurations());
@@ -400,34 +407,57 @@ const slotDurationMinutes = computed(() => {
 });
 
 const timeSummaries = computed(() => {
-    const morningSlots = [];
-    const afternoonSlots = [];
+    const groups = {
+        morning: { period: 'morning', label: '上午', slots: [] },
+        afternoon: { period: 'afternoon', label: '下午', slots: [] }
+    };
+
     availableSlots.value.forEach((slot) => {
         const start = new Date(slot.start_time);
         if (Number.isNaN(start.getTime())) {
             return;
         }
-        if (start.getHours() < 12) {
-            morningSlots.push(slot);
-        } else {
-            afternoonSlots.push(slot);
-        }
+        const key = start.getHours() < 12 ? 'morning' : 'afternoon';
+        groups[key].slots.push(slot);
     });
-    const toSummary = (period, label, slots) => {
-        const totalMinutes = slots.length * slotDurationMinutes.value;
-        const isAvailable = totalMinutes >= MIN_PERIOD_AVAILABLE_MINUTES;
-        return {
-            period,
-            label,
-            slots,
-            totalMinutes,
-            isAvailable
-        };
-    };
-    return [
-        toSummary('morning', '上午', morningSlots),
-        toSummary('afternoon', '下午', afternoonSlots)
-    ];
+
+    const buildItems = (slots) => slots
+        .slice()
+        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+        .map((slot) => {
+            const start = new Date(slot.start_time);
+            if (Number.isNaN(start.getTime())) {
+                return null;
+            }
+            const timeLabel = formatSlotTime(start);
+            const isHeld = !isSlotFree(timeLabel, selectedDate.value);
+            const technicianName = slot.technician?.nickname || slot.technician?.phone || '';
+            const resourceName = slot.resource?.name || '';
+            return {
+                id: [slot.start_time, slot.technician?.uid || 'tech', slot.resource?.uid || 'res'].join('-'),
+                time: timeLabel,
+                technician: technicianName ? `技师 ${technicianName}` : '',
+                resource: resourceName ? `房间 ${resourceName}` : '',
+                disabled: isHeld,
+                raw: slot
+            };
+        })
+        .filter(Boolean);
+
+    return ['morning', 'afternoon']
+        .map((key) => {
+            const group = groups[key];
+            const items = buildItems(group.slots);
+            const availableCount = items.filter((item) => !item.disabled).length;
+            const totalMinutes = availableCount * slotDurationMinutes.value;
+            return {
+                period: group.period,
+                label: group.label,
+                totalMinutes,
+                items
+            };
+        })
+        .filter((group) => group.items.length);
 });
 
 const dateWeeks = computed(() => {
@@ -696,18 +726,6 @@ const openDatePopup = () => {
 
 const closeDatePopup = () => {
     datePopup.value?.close();
-};
-
-const handleSelectPeriod = (period) => {
-    const summary = timeSummaries.value.find((item) => item.period === period);
-    if (!summary || !summary.slots.length || !summary.isAvailable) {
-        return;
-    }
-    const [firstSlot] = summary.slots;
-    if (!firstSlot) {
-        return;
-    }
-    handleSelectSlot(firstSlot);
 };
 
 const handleSelectSlot = (slot) => {
@@ -1017,19 +1035,46 @@ onBeforeUnmount(() => {
     padding: 4px 0;
 }
 
+.period-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.period-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.period-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.period-title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.period-hint {
+    font-size: 12px;
+    color: #606266;
+}
+
 .times-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-.period-grid {
+.slot-grid {
     width: 100%;
 }
 
-.period-chip {
-    flex: 1;
-    min-width: calc(50% - 5px);
+.slot-chip {
+    flex: 1 0 calc(33.33% - 10px);
 }
 
 .time-chip {
@@ -1050,32 +1095,14 @@ onBeforeUnmount(() => {
     font-weight: 600;
 }
 
-.time-status {
-    font-size: 14px;
-    font-weight: 600;
-}
-
 .time-hint {
     font-size: 12px;
     color: #606266;
 }
 
-.time-chip.available {
-    border-color: #67c23a;
-    background-color: #f0f9eb;
-}
-
-.time-chip.available .time-status {
-    color: #67c23a;
-}
-
-.time-chip.full {
-    border-color: #f56c6c;
-    background-color: #fef0f0;
-}
-
-.time-chip.full .time-status {
-    color: #f56c6c;
+.time-sub-hint {
+    font-size: 12px;
+    color: #909399;
 }
 
 .time-chip.disabled {
