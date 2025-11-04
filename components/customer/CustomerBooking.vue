@@ -177,16 +177,16 @@
                             空闲 {{ formatAvailableMinutes(summary.totalMinutes) }}
                         </text>
                     </view>
-                    <view class="times-grid slot-grid">
+                    <view class="times-list">
                         <button
                             v-for="slot in summary.items"
                             :key="slot.id"
-                            class="time-chip slot-chip"
+                            class="time-item"
                             :class="{ disabled: slot.disabled, available: slot.isAvailable }"
                             :disabled="slot.disabled"
                             @click="() => handleSelectSlot(slot.raw)"
                         >
-                            <text class="time-text">{{ slot.range }}</text>
+                            <text class="time-primary">{{ slot.range }}</text>
                         </button>
                     </view>
                 </view>
@@ -401,6 +401,32 @@ const PERIOD_SLOT_DEFINITIONS = {
     ]
 };
 
+const timeStringToMinutes = (value) => {
+    if (!value || typeof value !== 'string') {
+        return 0;
+    }
+    const [hoursStr, minutesStr] = value.split(':');
+    const hours = Number.parseInt(hoursStr, 10);
+    const minutes = Number.parseInt(minutesStr, 10);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        return 0;
+    }
+    return hours * 60 + minutes;
+};
+
+const getDefinitionDurationMinutes = (definition) => {
+    if (!definition || !definition.start || !definition.end) {
+        return slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
+    }
+    const startMinutes = timeStringToMinutes(definition.start);
+    const endMinutes = timeStringToMinutes(definition.end);
+    const diff = endMinutes - startMinutes;
+    if (diff > 0) {
+        return diff;
+    }
+    return slotDurationMinutes.value || DEFAULT_SLOT_DURATION_MINUTES;
+};
+
 const packageDurationInfo = computed(() => calculatePackageDurations());
 
 const getSlotTimestamp = (slot) => {
@@ -456,32 +482,33 @@ const slotDurationMinutes = computed(() => {
     }
     return DEFAULT_SLOT_DURATION_MINUTES;
 });
-const timeSummaries = computed(() => {
-    const slotAvailabilityMap = new Map();
-    availableSlots.value.forEach((slot) => {
-        const normalized = normalizeSlotPayload(slot);
-        if (!normalized) {
-            return;
-        }
-        const start = new Date(normalized.start_time);
-        if (Number.isNaN(start.getTime())) {
-            return;
-        }
-        const timeLabel = formatSlotTime(start);
-        if (!slotAvailabilityMap.has(timeLabel)) {
-            slotAvailabilityMap.set(timeLabel, []);
-        }
-        slotAvailabilityMap.get(timeLabel).push(normalized);
-    });
 
+const normalizedAvailableSlots = computed(() => {
+    return availableSlots.value
+        .map((slot) => normalizeSlotPayload(slot))
+        .filter(Boolean);
+});
+
+const slotAvailabilityMap = computed(() => {
+    const map = new Map();
+    normalizedAvailableSlots.value.forEach((slot) => {
+        const timeLabel = formatSlotTime(slot.start_time);
+        if (!map.has(timeLabel)) {
+            map.set(timeLabel, slot);
+        }
+    });
+    return map;
+});
+
+const timeSummaries = computed(() => {
     const buildItemsForPeriod = (periodKey) => {
         const definitions = PERIOD_SLOT_DEFINITIONS[periodKey] || [];
         return definitions.map((definition) => {
             const timeLabel = definition.start;
-            const availableSlotsForTime = slotAvailabilityMap.get(timeLabel) || [];
-            const slot = availableSlotsForTime[0] || null;
+            const slot = slotAvailabilityMap.value.get(timeLabel) || null;
             const isHeld = !isSlotFree(timeLabel, selectedDate.value);
             const hasAvailability = Boolean(slot) && !isHeld;
+            const durationMinutes = getDefinitionDurationMinutes(definition);
             const durationLabel = definition.end
                 ? `${definition.start} - ${definition.end}`
                 : '';
@@ -491,6 +518,7 @@ const timeSummaries = computed(() => {
                     : `placeholder-${periodKey}-${timeLabel}`,
                 time: timeLabel,
                 range: durationLabel,
+                durationMinutes,
                 disabled: !hasAvailability,
                 isAvailable: hasAvailability,
                 raw: hasAvailability ? slot : null
@@ -502,8 +530,12 @@ const timeSummaries = computed(() => {
         .map((periodKey) => {
             const label = periodKey === 'morning' ? '上午' : '下午';
             const items = buildItemsForPeriod(periodKey);
-            const availableCount = items.filter((item) => item.isAvailable).length;
-            const totalMinutes = availableCount * slotDurationMinutes.value;
+            const totalMinutes = items.reduce((sum, item) => {
+                if (!item.isAvailable) {
+                    return sum;
+                }
+                return sum + (item.durationMinutes || slotDurationMinutes.value);
+            }, 0);
             return {
                 period: periodKey,
                 label,
@@ -768,6 +800,7 @@ const handleQueryTimes = async () => {
 
 const closeTimesPopup = () => {
     timesPopup.value?.close();
+    timesPopupScrollTop.value = 0;
 };
 
 const openDatePopup = () => {
@@ -1123,78 +1156,48 @@ onBeforeUnmount(() => {
     color: #606266;
 }
 
-.times-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.slot-grid {
-    width: 100%;
-}
-
-.slot-chip {
-    flex: 1 0 calc(33.33% - 10px);
-}
-
-.time-chip {
-    min-width: 100px;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #e5e5e5;
-    text-align: center;
-    background-color: #ffffff;
+.times-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    align-items: center;
+    gap: 12px;
 }
 
-.time-text {
+.time-item {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e5e5;
+    background-color: #ffffff;
+    color: #303133;
     font-size: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.time-item .time-primary {
     font-weight: 600;
+    flex: 1;
 }
 
-.time-range {
-    font-size: 12px;
-    color: #909399;
-}
-
-.time-hint {
-    font-size: 12px;
-    color: #606266;
-}
-
-.time-sub-hint {
-    font-size: 12px;
-    color: #909399;
-}
-
-.time-chip.available {
+.time-item.available {
     border-color: #67c23a;
     background-color: #f0f9eb;
-}
-
-.time-chip.available .time-text {
     color: #3c8c3a;
 }
 
-.time-chip.available .time-range,
-.time-chip.available .time-hint,
-.time-chip.available .time-sub-hint {
+.time-item.available .time-primary {
     color: #3c8c3a;
 }
 
-.time-chip.disabled {
+.time-item.disabled {
     border-color: #ebeef5;
     background-color: #f5f7fa;
     color: #c0c4cc;
 }
 
-.time-chip.disabled .time-text,
-.time-chip.disabled .time-range,
-.time-chip.disabled .time-hint,
-.time-chip.disabled .time-sub-hint {
+.time-item:disabled {
     color: #c0c4cc;
 }
 
