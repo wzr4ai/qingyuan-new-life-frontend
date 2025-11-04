@@ -223,32 +223,30 @@
                             <text class="weekday-text">{{ item.weekday }}</text>
                         </view>
                         <view class="date-list-right">
-                            <view class="slot-group" v-if="item.morningSlots.length || item.afternoonSlots.length">
-                                <view v-if="item.morningSlots.length" class="slot-row">
-                                    <text class="slot-label">早</text>
-                                    <view class="slot-dots">
-                                        <view
-                                            v-for="slot in item.morningSlots"
-                                            :key="slot"
-                                            class="slot-chip"
-                                            :class="{ busy: !isSlotFree(slot, item.date) }"
-                                        >
-                                            <text class="slot-chip-text">{{ formatSlotLabel(slot) }}</text>
-                                        </view>
-                                    </view>
+                            <view class="period-summary-group" v-if="item.morningSlots.length || item.afternoonSlots.length">
+                                <view v-if="item.morningSlots.length" class="period-summary">
+                                    <text class="period-label">早</text>
+                                    <text
+                                        class="period-status"
+                                        :class="{
+                                            available: hasPeriodAvailability(item.morningSlots, item.date),
+                                            full: !hasPeriodAvailability(item.morningSlots, item.date)
+                                        }"
+                                    >
+                                        {{ hasPeriodAvailability(item.morningSlots, item.date) ? '有空' : '已满' }}
+                                    </text>
                                 </view>
-                                <view v-if="item.afternoonSlots.length" class="slot-row">
-                                    <text class="slot-label">午</text>
-                                    <view class="slot-dots">
-                                        <view
-                                            v-for="slot in item.afternoonSlots"
-                                            :key="slot"
-                                            class="slot-chip"
-                                            :class="{ busy: !isSlotFree(slot, item.date) }"
-                                        >
-                                            <text class="slot-chip-text">{{ formatSlotLabel(slot) }}</text>
-                                        </view>
-                                    </view>
+                                <view v-if="item.afternoonSlots.length" class="period-summary">
+                                    <text class="period-label">午</text>
+                                    <text
+                                        class="period-status"
+                                        :class="{
+                                            available: hasPeriodAvailability(item.afternoonSlots, item.date),
+                                            full: !hasPeriodAvailability(item.afternoonSlots, item.date)
+                                        }"
+                                    >
+                                        {{ hasPeriodAvailability(item.afternoonSlots, item.date) ? '有空' : '已满' }}
+                                    </text>
                                 </view>
                             </view>
                             <uni-icons v-if="item.date === selectedDate" type="checkbox-filled" size="18" color="#409eff"></uni-icons>
@@ -769,22 +767,11 @@ const isSlotFree = (slot, date) => {
     return !(daySet && daySet.has(slot));
 };
 
-const formatSlotLabel = (slot) => {
-    if (!slot || typeof slot !== 'string') {
-        return slot;
+const hasPeriodAvailability = (slots, date) => {
+    if (!Array.isArray(slots) || !slots.length) {
+        return false;
     }
-    const [hours, minutes] = slot.split(':').map((part) => Number(part));
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-        return slot;
-    }
-    const startMinutes = (hours * 60) + minutes;
-    const endMinutes = (startMinutes + 60) % (24 * 60);
-    const formatMinutes = (total) => {
-        const hh = String(Math.floor(total / 60)).padStart(2, '0');
-        const mm = String(total % 60).padStart(2, '0');
-        return `${hh}:${mm}`;
-    };
-    return `${formatMinutes(startMinutes)}-${formatMinutes(endMinutes)}`;
+    return slots.some((slot) => isSlotFree(slot, date));
 };
 
 function formatSlotTime(value) {
@@ -1168,57 +1155,37 @@ onBeforeUnmount(() => {
     gap: 8px;
 }
 
-.slot-indicator {
+.period-summary-group {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
 }
 
-.slot-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-right: 6px;
-}
-
-.slot-row {
+.period-summary {
     display: flex;
     align-items: center;
     gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background-color: #f5f7fa;
 }
 
-.slot-label {
+.period-label {
     font-size: 10px;
     color: #606266;
 }
 
-.slot-dots {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+.period-status {
+    font-size: 12px;
+    font-weight: 600;
+    color: #606266;
 }
 
-.slot-chip {
-    min-width: 64px;
-    padding: 4px 8px;
-    border-radius: 8px;
-    background-color: #e4f7ec;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid #b9e2c5;
-}
-
-.slot-chip.busy {
-    background-color: #ffecec;
-    border-color: #f7b5b5;
-}
-
-.slot-chip-text {
-    font-size: 11px;
+.period-status.available {
     color: #2f7a48;
 }
 
-.slot-chip.busy .slot-chip-text {
+.period-status.full {
     color: #c44747;
 }
 
