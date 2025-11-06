@@ -79,7 +79,10 @@
             <radio-group @change="handleTechnicianPreference">
                 <label class="radio-item">
                     <radio value="any" :checked="preferredTechnicianUid === 'any'" />
-                    <text>任何人</text>
+                    <view class="radio-meta">
+                        <text class="radio-name">任何人</text>
+                        <text class="radio-hint">系统将优先安排可预约技师</text>
+                    </view>
                 </label>
                 <label
                     v-for="tech in technicianOptionsView"
@@ -92,8 +95,18 @@
                         :checked="preferredTechnicianUid === tech.uid"
                         :disabled="!tech.is_available"
                     />
-                    <text>{{ tech.nickname || tech.phone || '未命名技师' }}</text>
-                    <text v-if="tech.disabled_reason" class="radio-hint">{{ tech.disabled_reason }}</text>
+                    <view class="radio-meta">
+                        <view class="radio-line">
+                            <text class="radio-name">{{ tech.nickname || tech.phone || '未命名技师' }}</text>
+                            <text
+                                v-if="tech.price !== null && tech.price !== undefined"
+                                class="radio-price"
+                            >
+                                ￥{{ formatPrice(tech.price) }}
+                            </text>
+                        </view>
+                        <text v-if="tech.disabled_reason" class="radio-hint">{{ tech.disabled_reason }}</text>
+                    </view>
                 </label>
             </radio-group>
         </view>
@@ -144,6 +157,12 @@
                     <view class="cart-detail-line">服务：{{ item.services.map((s) => s.name).join('，') }}</view>
                     <view class="cart-detail-line" v-if="item.technician">技师：{{ item.technician.nickname || item.technician.phone || item.technician.uid }}</view>
                     <view class="cart-detail-line" v-if="item.resource">资源：{{ item.resource.name }}</view>
+                    <view
+                        class="cart-detail-line"
+                        v-if="item.price !== null && item.price !== undefined"
+                    >
+                        价格：￥{{ formatPrice(item.price) }}
+                    </view>
                     <view class="cart-countdown">剩余锁定 {{ formatCountdown(item.expiresAt - currentTick) }}</view>
                     <button class="link-btn" size="mini" @click="() => removeCartItem(item.id)">移除</button>
                 </view>
@@ -154,6 +173,12 @@
     <view v-if="cartSummary.count" class="cart-footer">
         <view class="summary">
             <text>已选 {{ cartSummary.count }} 项预约</text>
+            <text
+                v-if="cartSummary.totalPrice"
+                class="summary-price"
+            >
+                合计 ￥{{ formatPrice(cartSummary.totalPrice) }}
+            </text>
             <text class="countdown">锁定剩余 {{ cartSummary.countdown }}</text>
         </view>
         <button class="primary-btn" size="default" @click="goCheckout">去结算</button>
@@ -174,6 +199,12 @@
                 >
                     <text class="time-text">{{ formatSlotTime(slot.start_time) }}</text>
                     <text class="time-subtext" v-if="slot.technician">{{ slot.technician.nickname || slot.technician.phone || '技师' }}</text>
+                    <text
+                        class="time-price"
+                        v-if="slot.price !== null && slot.price !== undefined"
+                    >
+                        ￥{{ formatPrice(slot.price) }}
+                    </text>
                 </button>
             </view>
             <view v-else class="times-empty">
@@ -297,7 +328,18 @@ const orderOptionReverse = computed(() => {
     return `${serviceOptionMap.value.get(first)?.name || '服务 A'} → ${serviceOptionMap.value.get(second)?.name || '服务 B'}`;
 });
 
-const technicianOptionsView = computed(() => technicianOptions.value);
+const technicianOptionsView = computed(() => {
+    return [...technicianOptions.value].sort((a, b) => {
+        const priceA = typeof a.price === 'number' ? a.price : Number.MAX_SAFE_INTEGER;
+        const priceB = typeof b.price === 'number' ? b.price : Number.MAX_SAFE_INTEGER;
+        if (priceA !== priceB) {
+            return priceA - priceB;
+        }
+        const nameA = a.nickname || '';
+        const nameB = b.nickname || '';
+        return nameA.localeCompare(nameB);
+    });
+});
 
 const canQuery = computed(() => {
     return Boolean(
@@ -318,14 +360,18 @@ const cartItems = computed(() => {
 const cartSummary = computed(() => {
     const count = cartItems.value.length;
     let minRemaining = Infinity;
+    let totalPrice = 0;
     cartItems.value.forEach((item) => {
         minRemaining = Math.min(minRemaining, Math.max(item.expiresAt - currentTick.value, 0));
+        if (typeof item.price === 'number' && !Number.isNaN(item.price)) {
+            totalPrice += item.price;
+        }
     });
     if (!count || !isFinite(minRemaining)) {
         minRemaining = 0;
     }
     const countdown = formatCountdown(minRemaining);
-    return { count, countdown };
+    return { count, countdown, totalPrice };
 });
 
 const dateWeeks = computed(() => {
@@ -598,6 +644,7 @@ const handleSelectSlot = (slot) => {
         serviceOrder: serviceOrder,
         technician: slot.technician || null,
         resource: slot.resource || null,
+        price: typeof slot.price === 'number' && !Number.isNaN(slot.price) ? slot.price : null,
         attendee,
         totalMinutes
     };
@@ -640,6 +687,17 @@ function formatSlotTime(value) {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
+}
+
+function formatPrice(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) {
+        return '';
+    }
+    return numeric % 1 === 0 ? String(numeric) : numeric.toFixed(2);
 }
 
 function formatWeekday(date) {
@@ -819,7 +877,7 @@ onBeforeUnmount(() => {
 
 .radio-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 10px 0;
 }
@@ -831,6 +889,29 @@ onBeforeUnmount(() => {
 .radio-hint {
     font-size: 12px;
     color: #f56c6c;
+}
+
+.radio-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.radio-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.radio-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.radio-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f59a23;
 }
 
 .link-btn {
@@ -857,6 +938,12 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.summary-price {
+    font-size: 14px;
+    color: #303133;
+    font-weight: 600;
 }
 
 .countdown {
@@ -900,6 +987,14 @@ onBeforeUnmount(() => {
     font-size: 12px;
     color: #909399;
     margin-top: 4px;
+}
+
+.time-price {
+    display: block;
+    font-size: 13px;
+    color: #f59a23;
+    margin-top: 4px;
+    font-weight: 600;
 }
 
 .times-empty {

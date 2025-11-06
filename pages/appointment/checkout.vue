@@ -27,7 +27,11 @@
                     <view class="item-line">服务：{{ item.services.map((s) => s.name).join('，') }}</view>
                     <view class="item-line" v-if="item.technician">技师：{{ item.technician.nickname || item.technician.phone || item.technician.uid }}</view>
                     <view class="item-line" v-if="item.resource">资源：{{ item.resource.name }}</view>
+                    <view class="item-line" v-if="item.price !== null && item.price !== undefined">价格：￥{{ formatPrice(item.price) }}</view>
                 </view>
+            </view>
+            <view class="checkout-summary" v-if="totalPrice">
+                <text>合计：￥{{ formatPrice(totalPrice) }}</text>
             </view>
             <button class="primary-btn" :disabled="!items.length" @click="handleSubmit">
                 提交预约
@@ -71,11 +75,31 @@ const groupedItems = computed(() => {
     return Array.from(groupsMap.values());
 });
 
+const totalPrice = computed(() => {
+    return items.value.reduce((sum, item) => {
+        if (typeof item.price === 'number' && !Number.isNaN(item.price)) {
+            return sum + item.price;
+        }
+        return sum;
+    }, 0);
+});
+
 const formatTime = (value) => {
     const date = new Date(value);
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
+};
+
+const formatPrice = (value) => {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) {
+        return '';
+    }
+    return numeric % 1 === 0 ? String(numeric) : numeric.toFixed(2);
 };
 
 const formatCountdown = (ms) => {
@@ -187,6 +211,15 @@ onBeforeUnmount(() => {
     color: #409eff;
     background: transparent;
     border: none;
+}
+
+.checkout-summary {
+    display: flex;
+    justify-content: flex-end;
+    margin: 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #303133;
 }
 
 .primary-btn {
